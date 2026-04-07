@@ -619,6 +619,14 @@ export async function updateAssetRequest(
 ) {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();
   if (authError || !supabase || !user) return { error: authError ?? "Auth error" };
+
+  // Fetch requester details before updating so we can email them
+  const { data: request } = await supabase
+    .from("asset_requests")
+    .select("requester_name, requester_email, category_name")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase
     .from("asset_requests")
     .update({
@@ -630,6 +638,20 @@ export async function updateAssetRequest(
     })
     .eq("id", id);
   if (error) return { error: error.message };
+
+  // Email the requester about the status change (fire and forget — never blocks the save)
+  if (request?.requester_email) {
+    const { sendRequestStatusEmail } = await import("@/lib/email");
+    sendRequestStatusEmail({
+      requestId: id,
+      requesterName: request.requester_name,
+      requesterEmail: request.requester_email,
+      categoryName: request.category_name ?? "Asset",
+      status: data.status,
+      adminNotes: data.admin_notes,
+    }).catch(() => {});
+  }
+
   await logActivity({
     userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null,
     action: "update_request", entityType: "request", entityId: id,
