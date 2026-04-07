@@ -649,7 +649,7 @@ export async function updateAssetRequest(
       categoryName: request.category_name ?? "Asset",
       status: data.status,
       adminNotes: data.admin_notes,
-    }).catch(() => {});
+    }).catch((err) => console.error("[sendRequestStatusEmail]", err));
   }
 
   await logActivity({

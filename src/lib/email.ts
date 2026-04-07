@@ -21,7 +21,7 @@ export async function sendRequestStatusEmail(params: {
   if (!cfg) return; // Don't email for "Pending" — they already got the submission confirmation
 
   await resend.emails.send({
-    from: `ISIBAG IT Asset Desk <${process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev"}>`,
+    from: `ISIBAG IT Asset Desk <${process.env.RESEND_FROM_EMAIL ?? "noreply@ustieloiru.resend.app"}>`,
     to: params.requesterEmail,
     subject: `Your Asset Request has been ${cfg.label} — ISIBAG IT Asset Desk`,
     html: `
@@ -73,7 +73,7 @@ export async function sendAssetRequestEmail(params: {
   const reviewUrl = `${appUrl}/requests/${params.requestId}`;
 
   await resend.emails.send({
-    from: `ISIBAG IT Asset Desk <${process.env.RESEND_FROM_EMAIL ?? "noreply@assetdesk.app"}>`,
+    from: `ISIBAG IT Asset Desk <${process.env.RESEND_FROM_EMAIL ?? "noreply@ustieloiru.resend.app"}>`,
     to: process.env.ADMIN_EMAIL!,
     subject: `New Asset Request — ${params.categoryName} from ${params.requesterName}`,
     html: `
