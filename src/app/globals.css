@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&family=DM+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --sidebar-w: 220px;
+  --brand-orange:      #C04F28;
+  --brand-orange-dark: #a8431f;
+  --brand-green:       #415445;
+  --brand-green-dark:  #354839;
+  --brand-charcoal:    #414042;
+  --brand-sage:        #859474;
+  --brand-sage-light:  #C9D9A0;
+}
+
+* { box-sizing: border-box; }
+
+html { font-family: 'DM Sans', sans-serif; }
+
+body {
+  background: #fafaf9;
+  color: #414042;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Scrollbar ──────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d6d3d1; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #a8a29e; }
+
+/* ─── Fade up (staggered) ────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up   { animation: fadeUp 300ms cubic-bezier(0.16,1,0.3,1) forwards; }
+.fade-up-1 { animation-delay:  60ms; opacity: 0; }
+.fade-up-2 { animation-delay: 120ms; opacity: 0; }
+.fade-up-3 { animation-delay: 180ms; opacity: 0; }
+.fade-up-4 { animation-delay: 240ms; opacity: 0; }
+.fade-up-5 { animation-delay: 300ms; opacity: 0; }
+
+/* ─── Scale in (modals, dropdowns) ──────────────── */
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+.scale-in { animation: scaleIn 200ms cubic-bezier(0.16,1,0.3,1) forwards; }
+
+/* ─── Slide in from right ────────────────────────── */
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide-right { animation: slideRight 220ms ease forwards; }
+
+/* ─── Shimmer skeleton ───────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f0efee 25%, #e7e5e4 50%, #f0efee 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* ─── Card hover lift ────────────────────────────── */
+.card-lift {
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(65, 64, 66, 0.10);
+}
+
+/* ─── Button press ───────────────────────────────── */
+.btn-press { transition: transform 80ms ease; }
+.btn-press:active { transform: scale(0.97); }
+
+/* ─── Primary button ─────────────────────────────── */
+.btn-primary {
+  background: var(--brand-orange);
+  color: #fff;
+  transition: background 150ms ease, transform 80ms ease;
+}
+.btn-primary:hover   { background: var(--brand-orange-dark); }
+.btn-primary:active  { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.5; pointer-events: none; }
+
+/* ─── Sidebar nav active indicator ───────────────── */
+@keyframes navPop {
+  from { opacity: 0; transform: scaleX(0.8); }
+  to   { opacity: 1; transform: scaleX(1); }
+}
+.nav-active { animation: navPop 180ms ease forwards; }
+
+/* ─── Timeline pulse dot ─────────────────────────── */
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1);   opacity: 1;   }
+  50%       { transform: scale(1.6); opacity: 0.5; }
+}
+.pulse-dot { animation: pulseDot 2s ease-in-out infinite; }
+
+/* ─── Table row hover ────────────────────────────── */
+.asset-row { transition: background 120ms ease; }
+.asset-row:hover { background: #f5f5f4; }
+
+/* ─── Stat card number ───────────────────────────── */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stat-number { animation: countUp 400ms cubic-bezier(0.16,1,0.3,1) forwards; }
