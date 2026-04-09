@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserMinus } from "lucide-react";
+import { Archive } from "lucide-react";
 import {
   Modal, FormField, Input, Select, Textarea,
   ModalFooter, BtnPrimary, BtnSecondary, BtnDanger, ErrorBanner, FormGrid, FormStack, ConfirmInline,
@@ -38,10 +38,25 @@ export function AddAssetModal({
   lookups: LookupProps;
 }) {
   const router = useRouter();
+  const [step, setStep] = useState<"details" | "assign">("details");
+  const [newAssetId, setNewAssetId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Assign step state
+  const [contactId, setContactId] = useState("");
+  const [assignLocationId, setAssignLocationId] = useState("");
+  const [jobLevelId, setJobLevelId] = useState("");
+  const [assignedAt, setAssignedAt] = useState(new Date().toISOString().split("T")[0]);
+  const [assignNotes, setAssignNotes] = useState("");
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [assignError, setAssignError] = useState("");
+
+  const inStorageStatusId = lookups.statuses.find((s) => s.name === "In Storage")?.id ?? "";
+  const inUseStatusId = lookups.statuses.find((s) => s.name === "In Use")?.id ?? "";
+
   const [form, setForm] = useState({
     description: "",
     category_id: "",
@@ -49,8 +64,6 @@ export function AddAssetModal({
     purchase_date: "",
     invoice_number: "",
     cpu_gen: "",
-    owning_department_id: "",
-    status_id: "",
     location_id: "",
     os_type: "",
     os_license_type: "",
@@ -79,15 +92,81 @@ export function AddAssetModal({
   async function handleSubmit() {
     if (!form.description.trim()) return setError("Description is required.");
     if (!form.category_id) return setError("Category is required.");
-    if (!form.status_id) return setError("Status is required.");
     if (!validateDates()) return;
     setLoading(true);
     setError("");
-    const res = await createAsset(form);
+    const res = await createAsset({ ...form, status_id: inStorageStatusId });
     setLoading(false);
     if (res?.error) { setConfirming(false); return setError(res.error); }
     router.refresh();
+    const created = res as unknown as { assetId: string };
+    setNewAssetId(created.assetId ?? "");
+    setStep("assign");
+  }
+
+  async function handleAssign() {
+    if (!contactId) return setAssignError("Please select a person to assign to.");
+    setAssignLoading(true);
+    setAssignError("");
+    const res = await assignAsset({
+      asset_id: newAssetId,
+      contact_id: contactId,
+      location_id: assignLocationId || undefined,
+      job_level_id: jobLevelId || undefined,
+      notes: assignNotes || undefined,
+      assigned_at: assignedAt,
+      in_use_status_id: inUseStatusId,
+      current_status_id: inStorageStatusId,
+    });
+    setAssignLoading(false);
+    if (res?.error) return setAssignError(res.error);
+    router.refresh();
     onClose();
+  }
+
+  if (step === "assign") {
+    return (
+      <Modal title="Assign Asset" subtitle="Asset created — assign it to someone or skip for now" onClose={onClose}>
+        <FormStack>
+          {assignError && <ErrorBanner message={assignError} />}
+
+          <FormField label="Assign To" required>
+            <Select value={contactId} onChange={(e) => { setContactId(e.target.value); setAssignError(""); }} error={!!assignError && !contactId}>
+              <option value="">Select person…</option>
+              {lookups.contacts.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+            </Select>
+          </FormField>
+
+          <FormGrid>
+            <FormField label="Location">
+              <Select value={assignLocationId} onChange={(e) => setAssignLocationId(e.target.value)}>
+                <option value="">No location</option>
+                {lookups.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Job Level">
+              <Select value={jobLevelId} onChange={(e) => setJobLevelId(e.target.value)}>
+                <option value="">No job level</option>
+                {lookups.jobLevels.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
+              </Select>
+            </FormField>
+          </FormGrid>
+
+          <FormField label="Assigned Date">
+            <Input type="date" value={assignedAt} onChange={(e) => setAssignedAt(e.target.value)} />
+          </FormField>
+
+          <FormField label="Notes">
+            <Textarea placeholder="Optional handover notes…" value={assignNotes} onChange={(e) => setAssignNotes(e.target.value)} rows={2} />
+          </FormField>
+
+          <ModalFooter>
+            <BtnSecondary onClick={onClose}>Skip</BtnSecondary>
+            <BtnPrimary onClick={handleAssign} loading={assignLoading}>Assign Asset</BtnPrimary>
+          </ModalFooter>
+        </FormStack>
+      </Modal>
+    );
   }
 
   return (
@@ -106,20 +185,8 @@ export function AddAssetModal({
               {lookups.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </Select>
           </FormField>
-          <FormField label="Status" required>
-            <Select value={form.status_id} onChange={(e) => set("status_id", e.target.value)} error={!!error && !form.status_id}>
-              <option value="">Select status</option>
-              {lookups.statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </Select>
-          </FormField>
-        </FormGrid>
-
-        <FormGrid>
           <FormField label="Serial Number">
             <Input placeholder="SN-XXXXX" value={form.serial_number} onChange={(e) => set("serial_number", e.target.value)} />
-          </FormField>
-          <FormField label="Invoice Number">
-            <Input value={form.invoice_number} onChange={(e) => set("invoice_number", e.target.value)} />
           </FormField>
         </FormGrid>
 
@@ -127,11 +194,8 @@ export function AddAssetModal({
           <FormField label="Purchase Date">
             <Input type="date" value={form.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} />
           </FormField>
-          <FormField label="Department">
-            <Select value={form.owning_department_id} onChange={(e) => set("owning_department_id", e.target.value)}>
-              <option value="">No department</option>
-              {lookups.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </Select>
+          <FormField label="Invoice Number">
+            <Input value={form.invoice_number} onChange={(e) => set("invoice_number", e.target.value)} />
           </FormField>
         </FormGrid>
 
@@ -490,7 +554,8 @@ export function AssignAssetModal({
   const [locationId, setLocationId] = useState(asset.location_id ?? "");
   const [notes, setNotes] = useState("");
   const [assignedAt, setAssignedAt] = useState(new Date().toISOString().split("T")[0]);
-  const [confirmingUnassign, setConfirmingUnassign] = useState(false);
+  const [storageStep, setStorageStep] = useState(false);
+  const [storageLocationId, setStorageLocationId] = useState("");
   const [confirmingAssign, setConfirmingAssign] = useState(false);
 
   const isCurrentlyAssigned = !!asset.assigned_to_contact_id;
@@ -514,10 +579,10 @@ export function AssignAssetModal({
     onClose();
   }
 
-  async function handleUnassign() {
+  async function handleSendToStorage() {
     setLoading(true);
     setError("");
-    const res = await unassignAsset(asset.id, inStorageStatusId, asset.status_id);
+    const res = await unassignAsset(asset.id, inStorageStatusId, asset.status_id, storageLocationId || undefined);
     setLoading(false);
     if (res?.error) return setError(res.error);
     router.refresh();
@@ -530,22 +595,35 @@ export function AssignAssetModal({
         {error && <ErrorBanner message={error} />}
 
         {isCurrentlyAssigned && (
-          <div className="flex items-center justify-between px-3 py-2.5 bg-sky-50 border border-sky-200 rounded-lg">
-            <div>
-              <p className="text-[12px] font-medium text-sky-800">Currently assigned to</p>
-              <p className="text-[13px] text-sky-900 font-semibold">{asset.assigned_to_contact?.full_name}</p>
+          <div className="px-3 py-2.5 bg-sky-50 border border-sky-200 rounded-lg space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-[12px] font-medium text-sky-800">Currently assigned to</p>
+                <p className="text-[13px] text-sky-900 font-semibold">{asset.assigned_to_contact?.full_name}</p>
+              </div>
+              {!storageStep && (
+                <button
+                  onClick={() => setStorageStep(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white rounded-lg transition-colors"
+                  style={{ background: "#415445" }}
+                >
+                  <Archive size={13} /> Send to Storage
+                </button>
+              )}
             </div>
-            <ConfirmInline
-              confirming={confirmingUnassign}
-              onAsk={() => setConfirmingUnassign(true)}
-              onConfirm={handleUnassign}
-              onCancel={() => setConfirmingUnassign(false)}
-              loading={loading}
-              label={<span className="flex items-center gap-1.5"><UserMinus size={13} />Unassign</span>}
-              confirmLabel="Yes, unassign"
-              variant="danger"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
-            />
+            {storageStep && (
+              <div className="space-y-2 pt-1 border-t border-sky-200">
+                <p className="text-[12px] font-medium text-sky-800">Select storage location</p>
+                <Select value={storageLocationId} onChange={(e) => setStorageLocationId(e.target.value)}>
+                  <option value="">No specific location</option>
+                  {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                </Select>
+                <div className="flex gap-2 pt-1">
+                  <BtnSecondary onClick={() => setStorageStep(false)}>Cancel</BtnSecondary>
+                  <BtnPrimary onClick={handleSendToStorage} loading={loading}>Confirm</BtnPrimary>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

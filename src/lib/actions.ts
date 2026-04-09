@@ -202,13 +202,14 @@ export async function changeAssetStatus(
   revalidatePath("/assets");
   revalidatePath(`/assets/${assetId}`);
   revalidatePath("/dashboard");
-  return { success: true };
+  return { success: true as const, assetId };
 }
 
 export async function assignAsset(data: {
   asset_id: string;
   contact_id: string;
   location_id?: string;
+  job_level_id?: string;
   notes?: string;
   assigned_at?: string;
   in_use_status_id: string;
@@ -240,6 +241,8 @@ export async function assignAsset(data: {
     .update({
       assigned_to_contact_id: data.contact_id,
       status_id: data.in_use_status_id,
+      ...(data.location_id ? { location_id: data.location_id } : {}),
+      ...(data.job_level_id ? { assigned_job_level_id: data.job_level_id } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", data.asset_id);
@@ -280,7 +283,8 @@ export async function assignAsset(data: {
 export async function unassignAsset(
   assetId: string,
   inStorageStatusId: string,
-  currentStatusId: string
+  currentStatusId: string,
+  locationId?: string
 ) {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();
   if (authError || !supabase || !user) return { error: authError };
@@ -296,6 +300,7 @@ export async function unassignAsset(
     .update({
       assigned_to_contact_id: null,
       status_id: inStorageStatusId,
+      ...(locationId ? { location_id: locationId } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", assetId);
