@@ -64,7 +64,6 @@ export function AddAssetModal({
     purchase_date: "",
     invoice_number: "",
     cpu_gen: "",
-    location_id: "",
     os_type: "",
     os_license_type: "",
     warranty_start_date: "",
@@ -92,15 +91,17 @@ export function AddAssetModal({
   async function handleSubmit() {
     if (!form.description.trim()) return setError("Description is required.");
     if (!form.category_id) return setError("Category is required.");
+    if (!inStorageStatusId) return setError("No 'In Storage' status found. Please check your status settings.");
     if (!validateDates()) return;
     setLoading(true);
     setError("");
     const res = await createAsset({ ...form, status_id: inStorageStatusId });
     setLoading(false);
     if (res?.error) { setConfirming(false); return setError(res.error); }
+    const id = (res as unknown as { assetId?: string }).assetId;
+    if (!id) return setError("Asset created but ID was not returned.");
+    setNewAssetId(id);
     router.refresh();
-    const created = res as unknown as { assetId: string };
-    setNewAssetId(created.assetId ?? "");
     setStep("assign");
   }
 
@@ -199,17 +200,9 @@ export function AddAssetModal({
           </FormField>
         </FormGrid>
 
-        <FormGrid>
-          <FormField label="Location">
-            <Select value={form.location_id} onChange={(e) => set("location_id", e.target.value)}>
-              <option value="">No location</option>
-              {lookups.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </Select>
-          </FormField>
-          <FormField label="CPU Generation">
-            <Input placeholder="e.g. 13" value={form.cpu_gen} onChange={(e) => set("cpu_gen", e.target.value)} />
-          </FormField>
-        </FormGrid>
+        <FormField label="CPU Generation">
+          <Input placeholder="e.g. 13" value={form.cpu_gen} onChange={(e) => set("cpu_gen", e.target.value)} />
+        </FormField>
 
         <FormGrid>
           <FormField label="OS Type">
