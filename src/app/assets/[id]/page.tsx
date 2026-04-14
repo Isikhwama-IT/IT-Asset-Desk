@@ -206,7 +206,17 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       });
     }
   }
-  timelineEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.priority - b.priority);
+  // Sort by date-only portion first (YYYY-MM-DD), then by priority.
+  // assigned_at is stored as a date-only string which parses to midnight UTC,
+  // causing it to sort before same-day timestamped events. Comparing only the
+  // date portion avoids this and lets priority determine same-day order.
+  timelineEvents.sort((a, b) => {
+    const dateA = a.date.substring(0, 10);
+    const dateB = b.date.substring(0, 10);
+    if (dateA < dateB) return -1;
+    if (dateA > dateB) return 1;
+    return a.priority - b.priority;
+  });
 
   const statusColors: Record<string, string> = {
     Open: "bg-amber-50 text-amber-700",
