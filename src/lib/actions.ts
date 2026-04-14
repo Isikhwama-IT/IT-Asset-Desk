@@ -302,6 +302,8 @@ export async function unassignAsset(
     .from("assets")
     .update({
       assigned_to_contact_id: null,
+      owning_department_id: null,
+      assigned_job_level_id: null,
       status_id: inStorageStatusId,
       ...(locationId ? { location_id: locationId } : {}),
       updated_at: new Date().toISOString(),
