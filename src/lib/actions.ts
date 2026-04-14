@@ -287,7 +287,10 @@ export async function unassignAsset(
   assetId: string,
   inStorageStatusId: string,
   currentStatusId: string,
-  locationId?: string
+  locationId?: string,
+  contactId?: string,
+  departmentId?: string,
+  jobLevelId?: string,
 ) {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();
   if (authError || !supabase || !user) return { error: authError };
@@ -298,12 +301,24 @@ export async function unassignAsset(
     .eq("asset_id", assetId)
     .is("returned_at", null);
 
+  // If a storage custodian is specified, create an assignment record for them
+  if (contactId) {
+    await supabase.from("asset_assignments").insert({
+      id: crypto.randomUUID(),
+      asset_id: assetId,
+      contact_id: contactId,
+      location_id: locationId || null,
+      notes: "In storage",
+      assigned_at: new Date().toISOString().split("T")[0],
+    } as AssignmentInsert);
+  }
+
   await supabase
     .from("assets")
     .update({
-      assigned_to_contact_id: null,
-      owning_department_id: null,
-      assigned_job_level_id: null,
+      assigned_to_contact_id: contactId ?? null,
+      owning_department_id: departmentId ?? null,
+      assigned_job_level_id: jobLevelId ?? null,
       status_id: inStorageStatusId,
       ...(locationId ? { location_id: locationId } : {}),
       updated_at: new Date().toISOString(),
