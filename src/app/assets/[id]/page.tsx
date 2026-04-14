@@ -118,6 +118,7 @@ type TimelineEvent = {
   dotColor: string;
   icon: React.ElementType;
   iconColor: string;
+  priority: number; // tie-breaker: lower = earlier when timestamps are equal
 };
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -142,6 +143,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     dotColor: "bg-stone-400",
     icon: Package,
     iconColor: "text-stone-500",
+    priority: 0,
   });
   for (const a of [...assignments].sort((x, y) => new Date(x.assigned_at).getTime() - new Date(y.assigned_at).getTime())) {
     timelineEvents.push({
@@ -152,6 +154,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       dotColor: "bg-sky-400",
       icon: UserPlus,
       iconColor: "text-sky-600",
+      priority: 1,
     });
     if (a.returned_at) {
       timelineEvents.push({
@@ -162,6 +165,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
         dotColor: "bg-stone-300",
         icon: UserMinus,
         iconColor: "text-stone-500",
+        priority: 2,
       });
     }
   }
@@ -175,6 +179,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       dotColor: sCfg.dot,
       icon: Tag,
       iconColor: "text-stone-500",
+      priority: 3,
     });
   }
   for (const m of [...maintenance].sort((x, y) => new Date(x.opened_at).getTime() - new Date(y.opened_at).getTime())) {
@@ -186,6 +191,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       dotColor: "bg-amber-400",
       icon: Wrench,
       iconColor: "text-amber-600",
+      priority: 4,
     });
     if (m.closed_at) {
       timelineEvents.push({
@@ -196,10 +202,11 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
         dotColor: "bg-emerald-400",
         icon: Check,
         iconColor: "text-emerald-600",
+        priority: 5,
       });
     }
   }
-  timelineEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  timelineEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.priority - b.priority);
 
   const statusColors: Record<string, string> = {
     Open: "bg-amber-50 text-amber-700",
