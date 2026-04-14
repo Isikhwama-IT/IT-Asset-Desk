@@ -48,7 +48,6 @@ export function AddAssetModal({
   // Assign step state
   const [contactId, setContactId] = useState("");
   const [assignLocationId, setAssignLocationId] = useState("");
-  const [jobLevelId, setJobLevelId] = useState("");
   const [assignedAt, setAssignedAt] = useState(new Date().toISOString().split("T")[0]);
   const [assignNotes, setAssignNotes] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
@@ -106,13 +105,14 @@ export function AddAssetModal({
 
   async function handleAssign() {
     if (!contactId) return setAssignError("Please select a person to assign to.");
+    const contact = lookups.contacts.find((c) => c.id === contactId);
     setAssignLoading(true);
     setAssignError("");
     const res = await assignAsset({
       asset_id: newAssetId,
       contact_id: contactId,
       location_id: assignLocationId || undefined,
-      job_level_id: jobLevelId || undefined,
+      job_level_id: contact?.job_level_id || undefined,
       notes: assignNotes || undefined,
       assigned_at: assignedAt,
       in_use_status_id: inUseStatusId,
@@ -137,20 +137,12 @@ export function AddAssetModal({
             </Select>
           </FormField>
 
-          <FormGrid>
-            <FormField label="Location">
-              <Select value={assignLocationId} onChange={(e) => setAssignLocationId(e.target.value)}>
-                <option value="">No location</option>
-                {lookups.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-              </Select>
-            </FormField>
-            <FormField label="Job Level">
-              <Select value={jobLevelId} onChange={(e) => setJobLevelId(e.target.value)}>
-                <option value="">No job level</option>
-                {lookups.jobLevels.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}
-              </Select>
-            </FormField>
-          </FormGrid>
+          <FormField label="Location">
+            <Select value={assignLocationId} onChange={(e) => setAssignLocationId(e.target.value)}>
+              <option value="">No location</option>
+              {lookups.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </Select>
+          </FormField>
 
           <FormField label="Assigned Date">
             <Input type="date" value={assignedAt} onChange={(e) => setAssignedAt(e.target.value)} />
