@@ -209,8 +209,9 @@ export async function changeAssetStatus(
 export async function assignAsset(data: {
   asset_id: string;
   contact_id: string;
-  location_id?: string;
+  department_id?: string;
   job_level_id?: string;
+  location_id?: string;
   notes?: string;
   assigned_at?: string;
   in_use_status_id: string;
@@ -242,8 +243,9 @@ export async function assignAsset(data: {
     .update({
       assigned_to_contact_id: data.contact_id,
       status_id: data.in_use_status_id,
-      ...(data.location_id ? { location_id: data.location_id } : {}),
+      ...(data.department_id ? { owning_department_id: data.department_id } : {}),
       ...(data.job_level_id ? { assigned_job_level_id: data.job_level_id } : {}),
+      ...(data.location_id ? { location_id: data.location_id } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq("id", data.asset_id);

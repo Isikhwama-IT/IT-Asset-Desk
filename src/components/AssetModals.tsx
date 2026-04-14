@@ -111,8 +111,9 @@ export function AddAssetModal({
     const res = await assignAsset({
       asset_id: newAssetId,
       contact_id: contactId,
-      location_id: assignLocationId || undefined,
+      department_id: contact?.department_id || undefined,
       job_level_id: contact?.job_level_id || undefined,
+      location_id: assignLocationId || undefined,
       notes: assignNotes || undefined,
       assigned_at: assignedAt,
       in_use_status_id: inUseStatusId,
@@ -548,9 +549,12 @@ export function AssignAssetModal({
     if (!contactId) return setError("Please select a person to assign to.");
     setLoading(true);
     setError("");
+    const selectedContact = contacts.find((c) => c.id === contactId);
     const res = await assignAsset({
       asset_id: asset.id,
       contact_id: contactId,
+      department_id: selectedContact?.department_id ?? undefined,
+      job_level_id: selectedContact?.job_level_id ?? undefined,
       location_id: locationId || undefined,
       notes: notes || undefined,
       assigned_at: assignedAt,
