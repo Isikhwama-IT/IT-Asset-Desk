@@ -26,6 +26,7 @@ async function getAuthenticatedAdmin() {
 // ─── ASSETS ────────────────────────────────────────────────────────────────
 
 export async function createAsset(data: {
+  id?: string;
   description: string;
   category_id: string;
   serial_number?: string;
@@ -56,7 +57,7 @@ export async function createAsset(data: {
   const clean = Object.fromEntries(
     Object.entries(data).map(([k, v]) => [k, v === "" ? null : v])
   );
-  const assetId = crypto.randomUUID();
+  const assetId = data.id || crypto.randomUUID();
   const { error } = await supabase.from("assets").insert({
     id: assetId,
     asset_code: nextCode,

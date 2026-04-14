@@ -93,14 +93,13 @@ export function AddAssetModal({
     if (!form.category_id) return setError("Category is required.");
     if (!inStorageStatusId) return setError("No 'In Storage' status found. Please check your status settings.");
     if (!validateDates()) return;
+    const generatedId = crypto.randomUUID();
     setLoading(true);
     setError("");
-    const res = await createAsset({ ...form, status_id: inStorageStatusId });
+    const res = await createAsset({ ...form, id: generatedId, status_id: inStorageStatusId });
     setLoading(false);
     if (res?.error) { setConfirming(false); return setError(res.error); }
-    const id = (res as unknown as { assetId?: string }).assetId;
-    if (!id) return setError("Asset created but ID was not returned.");
-    setNewAssetId(id);
+    setNewAssetId(generatedId);
     router.refresh();
     setStep("assign");
   }
