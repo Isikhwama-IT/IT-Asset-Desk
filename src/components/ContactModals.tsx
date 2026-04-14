@@ -6,7 +6,7 @@ import {
   Modal, FormField, Input, Select, Textarea,
   ModalFooter, BtnPrimary, BtnSecondary, BtnDanger, ErrorBanner, FormGrid, FormStack, ConfirmInline,
 } from "@/components/modal-ui";
-import { createContact, updateContact, setContactActive } from "@/lib/actions";
+import { createContact, updateContact, setContactActive, deleteContact } from "@/lib/actions";
 import type { Contact, Department, JobLevel } from "@/types/database";
 
 type ContactWithRelations = Contact & {
@@ -137,6 +137,9 @@ export function EditContactModal({
   const [emailError, setEmailError] = useState("");
   const [confirmingToggle, setConfirmingToggle] = useState(false);
   const [confirmingSave, setConfirmingSave] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [form, setForm] = useState({
     full_name: contact.full_name,
     email: contact.email ?? "",
@@ -157,6 +160,15 @@ export function EditContactModal({
     const res = await updateContact(contact.id, form);
     setLoading(false);
     if (res?.error) { setConfirmingSave(false); return setError(res.error); }
+    router.refresh();
+    onClose();
+  }
+
+  async function handleDelete() {
+    setDeleteLoading(true);
+    const res = await deleteContact(contact.id);
+    setDeleteLoading(false);
+    if (res?.error) return setDeleteError(res.error);
     router.refresh();
     onClose();
   }
@@ -211,22 +223,36 @@ export function EditContactModal({
         </FormGrid>
 
         <ModalFooter>
-          {/* Deactivate / Reactivate with inline confirm — left-aligned via mr-auto */}
-          <ConfirmInline
-            confirming={confirmingToggle}
-            onAsk={() => setConfirmingToggle(true)}
-            onConfirm={handleToggleActive}
-            onCancel={() => setConfirmingToggle(false)}
-            loading={toggleLoading}
-            label={contact.is_active ? "Deactivate" : "Reactivate"}
-            confirmLabel={contact.is_active ? "Yes, deactivate" : "Yes, reactivate"}
-            variant={contact.is_active ? "danger" : "warning"}
-            className={
-              contact.is_active
-                ? "px-4 py-2 text-[13px] font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors mr-auto"
-                : "px-4 py-2 text-[13px] font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors mr-auto"
-            }
-          />
+          {/* Left side: Deactivate + Delete */}
+          <div className="flex items-center gap-2 mr-auto">
+            <ConfirmInline
+              confirming={confirmingToggle}
+              onAsk={() => setConfirmingToggle(true)}
+              onConfirm={handleToggleActive}
+              onCancel={() => setConfirmingToggle(false)}
+              loading={toggleLoading}
+              label={contact.is_active ? "Deactivate" : "Reactivate"}
+              confirmLabel={contact.is_active ? "Yes, deactivate" : "Yes, reactivate"}
+              variant={contact.is_active ? "danger" : "warning"}
+              className={
+                contact.is_active
+                  ? "px-4 py-2 text-[13px] font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                  : "px-4 py-2 text-[13px] font-medium text-emerald-700 border border-emerald-200 bg-emerald-50 rounded-lg hover:bg-emerald-100 transition-colors"
+              }
+            />
+            <ConfirmInline
+              confirming={confirmingDelete}
+              onAsk={() => setConfirmingDelete(true)}
+              onConfirm={handleDelete}
+              onCancel={() => { setConfirmingDelete(false); setDeleteError(""); }}
+              loading={deleteLoading}
+              label="Delete"
+              confirmLabel="Yes, delete permanently"
+              variant="danger"
+              className="px-4 py-2 text-[13px] font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+            />
+            {deleteError && <span className="text-[12px] text-red-500">{deleteError}</span>}
+          </div>
           <BtnSecondary onClick={onClose}>Cancel</BtnSecondary>
           <ConfirmInline
             confirming={confirmingSave}

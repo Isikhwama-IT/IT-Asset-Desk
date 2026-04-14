@@ -669,6 +669,53 @@ export async function updateAssetRequest(
 }
 
 
+export async function deleteAsset(id: string): Promise<{ success?: boolean; error?: string }> {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError ?? "Auth error" };
+
+  // Delete related records in dependency order before removing the asset
+  await supabase.from("maintenance_records").delete().eq("asset_id", id);
+  await supabase.from("asset_status_history").delete().eq("asset_id", id);
+  await supabase.from("asset_assignments").delete().eq("asset_id", id);
+  await supabase.from("asset_audit_log").delete().eq("asset_id", id);
+
+  const { error } = await supabase.from("assets").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  await logActivity({
+    userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null,
+    action: "delete_asset", entityType: "asset", entityId: id,
+  });
+  revalidatePath("/assets");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function deleteContact(id: string): Promise<{ success?: boolean; error?: string }> {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError ?? "Auth error" };
+
+  // Unassign any assets currently assigned to this contact
+  await supabase.from("assets").update({ assigned_to_contact_id: null }).eq("assigned_to_contact_id", id);
+  // Close out their assignment records
+  await supabase.from("asset_assignments")
+    .update({ returned_at: new Date().toISOString() })
+    .eq("contact_id", id)
+    .is("returned_at", null);
+
+  const { error } = await supabase.from("contacts").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  await logActivity({
+    userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null,
+    action: "delete_contact", entityType: "contact", entityId: id,
+  });
+  revalidatePath("/people");
+  revalidatePath("/assets");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 export async function deleteAssetRequest(id: string): Promise<{ success?: boolean; error?: string }> {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();
   if (authError || !supabase || !user) return { error: authError ?? "Auth error" };
