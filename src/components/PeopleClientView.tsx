@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Search, X, ChevronDown, ChevronRight, Mail, Package, Pencil, Plus, LayoutGrid, List, ArrowUpRight } from "lucide-react";
 import { getCategoryIcon, getStatusConfig } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/motion";
 import { AddContactModal, EditContactModal } from "@/components/ContactModals";
 import { useAuth } from "@/context/AuthContext";
 import type { Contact, Department, JobLevel, AssetWithRelations } from "@/types/database";
@@ -327,9 +329,15 @@ export default function PeopleClientView({ contacts, assetsByContact, department
 
       {viewMode === "cards" ? (
         /* Grouped cards */
-        <div className="space-y-8">
+        <motion.div
+          className="space-y-8"
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          key={filtered.map(c => c.id).join(",")}
+        >
           {grouped.map(([dept, deptContacts]) => (
-            <div key={dept}>
+            <motion.div key={dept} variants={staggerItem}>
               <div className="flex items-center gap-3 mb-3">
                 <p className="text-[11px] font-medium text-stone-500 uppercase tracking-widest">{dept}</p>
                 <span className="text-[11px] text-stone-300 font-mono">{deptContacts.length}</span>
@@ -346,12 +354,12 @@ export default function PeopleClientView({ contacts, assetsByContact, department
                   />
                 ))}
               </div>
-            </div>
+            </motion.div>
           ))}
           {filtered.length === 0 && (
             <div className="py-16 text-center text-stone-400 text-[13px]">No people match your filters</div>
           )}
-        </div>
+        </motion.div>
       ) : (
         /* Who Has What view */
         <WhoHasWhat contacts={filtered} assetsByContact={assetsByContact} />

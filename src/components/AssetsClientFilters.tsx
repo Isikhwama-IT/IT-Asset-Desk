@@ -14,6 +14,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { getStatusConfig, getCategoryIcon } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/motion";
 import { AddAssetModal } from "@/components/AssetModals";
 import { useAuth } from "@/context/AuthContext";
 import { bulkChangeAssetStatus } from "@/lib/actions";
@@ -234,7 +236,13 @@ export default function AssetsClientFilters({
         </div>
 
         {/* Rows */}
-        <div className="divide-y divide-stone-50">
+        <motion.div
+          className="divide-y divide-stone-50"
+          variants={staggerContainer}
+          initial="hidden"
+          animate="visible"
+          key={assets.map(a => a.id).join(",")}
+        >
           {assets.length === 0 ? (
             <div className="py-16 text-center text-stone-400 text-[13px]">
               No assets match your filters
@@ -244,8 +252,9 @@ export default function AssetsClientFilters({
               const cfg = getStatusConfig(asset.status?.name);
               const isSelected = selectedIds.has(asset.id);
               return (
-                <div
+                <motion.div
                   key={asset.id}
+                  variants={staggerItem}
                   onClick={() => router.push(`/assets/${asset.id}`)}
                   className={`grid ${GRID} gap-3 px-4 py-3 items-center asset-row group cursor-pointer hover:bg-stone-50 transition-colors ${isSelected ? "bg-stone-50" : ""}`}
                 >
@@ -272,11 +281,11 @@ export default function AssetsClientFilters({
                     {asset.status?.name ?? "—"}
                   </span>
                   <ArrowUpRight size={13} className="text-stone-200 group-hover:text-stone-400 justify-self-end" />
-                </div>
+                </motion.div>
               );
             })
           )}
-        </div>
+        </motion.div>
       </div>
 
       {/* Pagination */}

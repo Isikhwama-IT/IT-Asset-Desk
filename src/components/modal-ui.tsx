@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 // ─── Modal shell ─────────────────────────────────────────────────────────────
@@ -43,16 +44,26 @@ export function Modal({ title, subtitle, onClose, children, width = "max-w-lg" }
       style={{ inset: 0, paddingLeft: "220px" }}
     >
       {/* Backdrop */}
-      <div
+      <motion.div
         className="fixed bg-stone-900/50 backdrop-blur-[2px]"
         style={{ inset: 0, zIndex: -1 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
         onClick={onClose}
       />
 
       {/* Scroll container — centres panel, allows tall modals to scroll */}
       <div className="flex items-center justify-center min-h-full p-6">
         {/* Panel */}
-        <div className={cn("relative bg-white rounded-2xl shadow-2xl w-full flex flex-col", width)}>
+        <motion.div
+          className={cn("relative bg-white rounded-2xl shadow-2xl w-full flex flex-col", width)}
+          initial={{ opacity: 0, scale: 0.96, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.97, y: 8 }}
+          transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
+        >
           {/* Header */}
           <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-stone-100 flex-shrink-0">
             <div>
@@ -73,7 +84,7 @@ export function Modal({ title, subtitle, onClose, children, width = "max-w-lg" }
           <div className="px-6 py-5">
             {children}
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>,
     document.body

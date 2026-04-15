@@ -3,6 +3,7 @@ import "./globals.css";
 import { getSession } from "@/lib/supabase-server";
 import { AuthProvider } from "@/context/AuthContext";
 import AppShell from "@/components/AppShell";
+import { ToastProvider } from "@/components/Toast";
 
 export const metadata: Metadata = {
   title: "IT Asset Desk — ISIBAG",
@@ -33,7 +34,9 @@ export default async function RootLayout({
               isAdmin: user.user_metadata?.role === "admin",
             }}
           >
-            <AppShell>{children}</AppShell>
+            <ToastProvider>
+              <AppShell>{children}</AppShell>
+            </ToastProvider>
           </AuthProvider>
         ) : (
           children

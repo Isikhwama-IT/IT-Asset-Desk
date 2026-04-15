@@ -75,6 +75,10 @@ export default function DashboardCharts({ statusData, departmentData, monthlyDat
                 paddingAngle={2}
                 dataKey="value"
                 strokeWidth={0}
+                isAnimationActive={true}
+                animationBegin={0}
+                animationDuration={800}
+                animationEasing="ease-out"
               >
                 {statusData.map((entry, i) => (
                   <Cell key={entry.name} fill={STATUS_COLORS[entry.name] ?? FALLBACKS[i % FALLBACKS.length]} />
@@ -134,6 +138,10 @@ export default function DashboardCharts({ statusData, departmentData, monthlyDat
                 fill="url(#areaGrad)"
                 dot={{ r: 3, fill: "#C04F28", strokeWidth: 0 }}
                 activeDot={{ r: 5, fill: "#C04F28", strokeWidth: 0 }}
+                isAnimationActive={true}
+                animationBegin={150}
+                animationDuration={1000}
+                animationEasing="ease-out"
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -164,7 +172,16 @@ export default function DashboardCharts({ statusData, departmentData, monthlyDat
               width={100}
             />
             <Tooltip content={<BarTooltip />} cursor={{ fill: "#f9f9f8" }} />
-            <Bar dataKey="count" fill="#C04F28" radius={[0, 4, 4, 0]} barSize={14} />
+            <Bar
+              dataKey="count"
+              fill="#C04F28"
+              radius={[0, 4, 4, 0]}
+              barSize={14}
+              isAnimationActive={true}
+              animationBegin={200}
+              animationDuration={900}
+              animationEasing="ease-out"
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>

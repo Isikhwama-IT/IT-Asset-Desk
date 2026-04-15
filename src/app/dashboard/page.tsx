@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Monitor, Users, Package, AlertTriangle, ArrowUpRight, Clock, ShieldAlert } from "lucide-react";
 import type { AssetWithRelations } from "@/types/database";
 import DashboardCharts from "@/components/DashboardCharts";
+import AnimatedStatCards from "@/components/AnimatedStatCards";
 
 type ExpiryAlert = { asset: AssetWithRelations; type: "Warranty" | "EOL"; date: string; daysRemaining: number };
 
@@ -135,7 +136,6 @@ export default async function DashboardPage() {
       value: data.totalAssets,
       icon: Package,
       sub: `${data.inUse} in use · ${data.inStorage} in storage`,
-      cls: "fade-up fade-up-1",
       accent: "#C04F28",
       iconBg: "#f0d4c8",
       iconColor: "#C04F28",
@@ -145,7 +145,6 @@ export default async function DashboardPage() {
       value: data.totalContacts,
       icon: Users,
       sub: "Contacts & teams",
-      cls: "fade-up fade-up-2",
       accent: "#415445",
       iconBg: "#eef3e6",
       iconColor: "#415445",
@@ -155,7 +154,6 @@ export default async function DashboardPage() {
       value: data.inUse,
       icon: Monitor,
       sub: `${data.totalAssets > 0 ? Math.round((data.inUse / data.totalAssets) * 100) : 0}% of inventory`,
-      cls: "fade-up fade-up-3",
       accent: "#859474",
       iconBg: "#f0f2ec",
       iconColor: "#859474",
@@ -165,8 +163,6 @@ export default async function DashboardPage() {
       value: data.alertAssets.length,
       icon: AlertTriangle,
       sub: "Damaged · Repair · Lost · Stolen",
-      cls: "fade-up fade-up-4",
-      alert: data.alertAssets.length > 0,
       accent: data.alertAssets.length > 0 ? "#dc2626" : "#859474",
       iconBg: data.alertAssets.length > 0 ? "#fef2f2" : "#f0f2ec",
       iconColor: data.alertAssets.length > 0 ? "#dc2626" : "#859474",
@@ -190,27 +186,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {statCards.map((card) => (
-          <div
-            key={card.label}
-            className={`bg-white rounded-xl border border-stone-200 p-5 card-lift overflow-hidden relative ${card.cls}`}
-            style={{ borderLeft: `3px solid ${card.accent}` }}
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: card.iconBg }}>
-                <card.icon size={15} style={{ color: card.iconColor }} />
-              </div>
-            </div>
-            <p className="text-3xl font-semibold mb-1 stat-number"
-               style={{ letterSpacing: "-0.04em", color: card.accent }}>
-              {card.value}
-            </p>
-            <p className="text-[13px] font-medium" style={{ color: "#414042" }}>{card.label}</p>
-            <p className="text-[11px] text-stone-400 mt-0.5">{card.sub}</p>
-          </div>
-        ))}
-      </div>
+      <AnimatedStatCards cards={statCards} />
 
       {/* Charts */}
       <DashboardCharts

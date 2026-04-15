@@ -1,5 +1,5 @@
 function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse bg-stone-100 rounded-lg ${className ?? ""}`} />;
+  return <div className={`skeleton ${className ?? ""}`} />;
 }
 
 export default function AssetDetailLoading() {

@@ -106,6 +106,21 @@ body {
 }
 .pulse-dot { animation: pulseDot 2s ease-in-out infinite; }
 
+/* ─── Status badge glow pulse ────────────────────── */
+@keyframes badgeGlow {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50%       { box-shadow: 0 0 0 4px transparent; opacity: 0.85; }
+}
+.badge-in-use {
+  animation: badgeGlow 2.4s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4);
+}
+@keyframes inUsePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.35); }
+  60%       { box-shadow: 0 0 0 5px rgba(56, 189, 248, 0); }
+}
+.badge-in-use { animation: inUsePulse 2.4s ease-out infinite; }
+
 /* ─── Table row hover ────────────────────────────── */
 .asset-row { transition: background 120ms ease; }
 .asset-row:hover { background: #f5f5f4; }

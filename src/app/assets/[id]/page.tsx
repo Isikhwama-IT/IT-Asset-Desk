@@ -246,7 +246,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
               <span className="text-[12px] font-mono font-medium text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md">
                 #{asset.asset_code}
               </span>
-              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-medium ${cfg.bg} ${cfg.color}`}>
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-medium ${cfg.bg} ${cfg.color} ${cfg.pulse ?? ""}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                 {asset.status?.name}
               </span>

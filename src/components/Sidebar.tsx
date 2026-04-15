@@ -16,6 +16,7 @@ import {
   Inbox,
   ClipboardList,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "@/app/login/actions";
@@ -82,22 +83,27 @@ export default function Sidebar({ open = true, onClose }: SidebarProps) {
               key={href}
               href={href}
               onClick={onClose}
-              className={cn(
-                "nav-active flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 group",
-              )}
-              style={{
-                background: active ? "#C04F28" : "transparent",
-                color: active ? "#ffffff" : "#C9D9A0",
-              }}
+              className="relative flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors duration-150"
+              style={{ color: active ? "#ffffff" : "#C9D9A0" }}
               onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "#354839"; }}
               onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >
+              {/* Animated active pill */}
+              {active && (
+                <motion.span
+                  layoutId="sidebar-active"
+                  className="absolute inset-0 rounded-lg"
+                  style={{ background: "#C04F28" }}
+                  transition={{ type: "spring", stiffness: 400, damping: 35 }}
+                />
+              )}
               <Icon
                 size={15}
-                style={{ color: active ? "#ffffff" : "#859474", flexShrink: 0 }}
+                className="relative z-10 flex-shrink-0"
+                style={{ color: active ? "#ffffff" : "#859474" }}
               />
-              <span className="flex-1">{label}</span>
-              {active && <ChevronRight size={12} style={{ color: "rgba(255,255,255,0.5)" }} />}
+              <span className="relative z-10 flex-1">{label}</span>
+              {active && <ChevronRight size={12} className="relative z-10" style={{ color: "rgba(255,255,255,0.5)" }} />}
             </Link>
           );
         })}

@@ -16,9 +16,10 @@ export function getStatusConfig(statusName: string | undefined): {
   color: string;
   dot: string;
   bg: string;
+  pulse?: string;
 } {
-  const map: Record<string, { color: string; dot: string; bg: string }> = {
-    "In Use":      { color: "text-emerald-700", dot: "bg-emerald-500", bg: "bg-emerald-50" },
+  const map: Record<string, { color: string; dot: string; bg: string; pulse?: string }> = {
+    "In Use":      { color: "text-emerald-700", dot: "bg-emerald-500", bg: "bg-emerald-50", pulse: "badge-in-use" },
     "In Storage":  { color: "text-sky-700",     dot: "bg-sky-400",     bg: "bg-sky-50" },
     "Under Repair":{ color: "text-amber-700",   dot: "bg-amber-400",   bg: "bg-amber-50" },
     "Damaged":     { color: "text-orange-700",  dot: "bg-orange-400",  bg: "bg-orange-50" },

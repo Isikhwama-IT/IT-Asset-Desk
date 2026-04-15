@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Sidebar from "./Sidebar";
+import PageTransition from "./PageTransition";
 import { Menu } from "lucide-react";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -36,7 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </span>
         </div>
 
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
     </div>
   );
