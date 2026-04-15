@@ -288,12 +288,16 @@ export async function unassignAsset(
   inStorageStatusId: string,
   currentStatusId: string,
   locationId?: string,
-  contactId?: string,
-  departmentId?: string,
-  jobLevelId?: string,
 ) {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();
   if (authError || !supabase || !user) return { error: authError };
+
+  // Look up the "Safe" contact who acts as the permanent storage custodian
+  const { data: safeContact } = await supabase
+    .from("contacts")
+    .select("id, department_id, job_level_id")
+    .ilike("full_name", "safe")
+    .single();
 
   await supabase
     .from("asset_assignments")
@@ -301,12 +305,12 @@ export async function unassignAsset(
     .eq("asset_id", assetId)
     .is("returned_at", null);
 
-  // If a storage custodian is specified, create an assignment record for them
-  if (contactId) {
+  // Assign to the Safe custodian
+  if (safeContact) {
     await supabase.from("asset_assignments").insert({
       id: crypto.randomUUID(),
       asset_id: assetId,
-      contact_id: contactId,
+      contact_id: safeContact.id,
       location_id: locationId || null,
       notes: "In storage",
       assigned_at: new Date().toISOString().split("T")[0],
@@ -316,9 +320,9 @@ export async function unassignAsset(
   await supabase
     .from("assets")
     .update({
-      assigned_to_contact_id: contactId ?? null,
-      owning_department_id: departmentId ?? null,
-      assigned_job_level_id: jobLevelId ?? null,
+      assigned_to_contact_id: safeContact?.id ?? null,
+      owning_department_id: safeContact?.department_id ?? null,
+      assigned_job_level_id: safeContact?.job_level_id ?? null,
       status_id: inStorageStatusId,
       ...(locationId ? { location_id: locationId } : {}),
       updated_at: new Date().toISOString(),

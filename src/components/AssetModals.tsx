@@ -540,7 +540,6 @@ export function AssignAssetModal({
   const [notes, setNotes] = useState("");
   const [assignedAt, setAssignedAt] = useState(new Date().toISOString().split("T")[0]);
   const [storageStep, setStorageStep] = useState(false);
-  const [storageContactId, setStorageContactId] = useState("");
   const [storageLocationId, setStorageLocationId] = useState("");
   const [confirmingAssign, setConfirmingAssign] = useState(false);
 
@@ -571,14 +570,7 @@ export function AssignAssetModal({
   async function handleSendToStorage() {
     setLoading(true);
     setError("");
-    const storageContact = contacts.find((c) => c.id === storageContactId);
-    const res = await unassignAsset(
-      asset.id, inStorageStatusId, asset.status_id,
-      storageLocationId || undefined,
-      storageContactId || undefined,
-      storageContact?.department_id ?? undefined,
-      storageContact?.job_level_id ?? undefined,
-    );
+    const res = await unassignAsset(asset.id, inStorageStatusId, asset.status_id, storageLocationId || undefined);
     setLoading(false);
     if (res?.error) return setError(res.error);
     router.refresh();
@@ -609,11 +601,6 @@ export function AssignAssetModal({
             </div>
             {storageStep && (
               <div className="space-y-2 pt-1 border-t border-sky-200">
-                <p className="text-[12px] font-medium text-sky-800">Assign storage custodian</p>
-                <Select value={storageContactId} onChange={(e) => setStorageContactId(e.target.value)}>
-                  <option value="">No custodian</option>
-                  {contacts.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
-                </Select>
                 <p className="text-[12px] font-medium text-sky-800">Select storage location</p>
                 <Select value={storageLocationId} onChange={(e) => setStorageLocationId(e.target.value)}>
                   <option value="">No specific location</option>
