@@ -213,8 +213,8 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   timelineEvents.sort((a, b) => {
     const dateA = a.date.substring(0, 10);
     const dateB = b.date.substring(0, 10);
-    if (dateA < dateB) return -1;
-    if (dateA > dateB) return 1;
+    if (dateA > dateB) return -1;
+    if (dateA < dateB) return 1;
     return a.priority - b.priority;
   });
 
