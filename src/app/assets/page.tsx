@@ -50,9 +50,18 @@ async function getAssetsData(params: SearchParams) {
       `description.ilike.%${params.q}%,serial_number.ilike.%${params.q}%`
     );
   }
-  if (params.status) query = query.eq("status_id", params.status);
-  if (params.cat) query = query.eq("category_id", params.cat);
-  if (params.dept) query = query.eq("owning_department_id", params.dept);
+  if (params.status) {
+    const ids = params.status.split(",").filter(Boolean);
+    if (ids.length > 0) query = query.in("status_id", ids);
+  }
+  if (params.cat) {
+    const ids = params.cat.split(",").filter(Boolean);
+    if (ids.length > 0) query = query.in("category_id", ids);
+  }
+  if (params.dept) {
+    const ids = params.dept.split(",").filter(Boolean);
+    if (ids.length > 0) query = query.in("owning_department_id", ids);
+  }
 
   const { data: assets, count } = await query
     .range(offset, offset + PAGE_SIZE - 1)

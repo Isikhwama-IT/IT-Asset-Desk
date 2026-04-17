@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useTransition, useState } from "react";
+import React, { useCallback, useTransition, useState, useRef, useEffect } from "react";
 import {
   Search,
   ArrowUpRight,
@@ -109,10 +109,17 @@ export default function AssetsClientFilters({
   );
 
   const q = searchParams.get("q") ?? "";
-  const filterStatus = searchParams.get("status") ?? "";
-  const filterCategory = searchParams.get("cat") ?? "";
-  const filterDept = searchParams.get("dept") ?? "";
-  const hasFilters = q || filterStatus || filterCategory || filterDept;
+  const filterStatuses = new Set(searchParams.get("status")?.split(",").filter(Boolean) ?? []);
+  const filterCategories = new Set(searchParams.get("cat")?.split(",").filter(Boolean) ?? []);
+  const filterDepts = new Set(searchParams.get("dept")?.split(",").filter(Boolean) ?? []);
+  const hasFilters = q || filterStatuses.size > 0 || filterCategories.size > 0 || filterDepts.size > 0;
+
+  function toggleFilter(param: string, id: string, current: Set<string>) {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    updateParams({ [param]: next.size > 0 ? [...next].join(",") : undefined, page: undefined });
+  }
 
   // ── CSV export ───────────────────────────────────────────────────────────
   const [exporting, setExporting] = useState(false);
@@ -159,13 +166,83 @@ export default function AssetsClientFilters({
   // Full export — fetches all matching assets from server
   async function exportAll() {
     setExporting(true);
-    const res = await getAllAssetsForExport({ q: q || undefined, status: filterStatus || undefined, cat: filterCategory || undefined, dept: filterDept || undefined });
+    const res = await getAllAssetsForExport({
+      q: q || undefined,
+      status: filterStatuses.size > 0 ? [...filterStatuses].join(",") : undefined,
+      cat: filterCategories.size > 0 ? [...filterCategories].join(",") : undefined,
+      dept: filterDepts.size > 0 ? [...filterDepts].join(",") : undefined,
+    });
     setExporting(false);
     if (res.error || !res.data) return;
     buildAndDownloadCSV(res.data);
   }
 
   const GRID = "grid-cols-[1.5rem_2.5rem_1fr_7rem_9rem_8rem_8rem_2rem]";
+
+  function FilterDropdown({
+    label,
+    options,
+    selectedIds,
+    onToggle,
+    renderOption,
+  }: {
+    label: string;
+    options: { id: string; name: string }[];
+    selectedIds: Set<string>;
+    onToggle: (id: string) => void;
+    renderOption?: (opt: { id: string; name: string }) => React.ReactNode;
+  }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+      function handler(e: MouseEvent) {
+        if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      }
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }, []);
+    const count = selectedIds.size;
+    return (
+      <div ref={ref} className="relative">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className={`flex items-center gap-1.5 text-[12.5px] border rounded-lg px-2.5 py-2 bg-white transition-colors focus:outline-none focus:ring-1 focus:ring-stone-300 ${
+            count > 0
+              ? "border-stone-400 text-stone-800"
+              : "border-stone-200 text-stone-600 hover:border-stone-300"
+          }`}
+        >
+          {label}
+          {count > 0 && (
+            <span className="bg-stone-900 text-white text-[10px] font-semibold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+              {count}
+            </span>
+          )}
+          <ChevronDown size={11} className={`text-stone-400 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+        </button>
+        {open && (
+          <div className="absolute top-full mt-1.5 left-0 z-20 bg-white border border-stone-200 rounded-xl shadow-lg py-1.5 min-w-[190px]">
+            {options.map((opt) => (
+              <label
+                key={opt.id}
+                className="flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(opt.id)}
+                  onChange={() => onToggle(opt.id)}
+                  className="w-3.5 h-3.5 rounded border-stone-300 accent-stone-800 flex-shrink-0"
+                />
+                {renderOption ? renderOption(opt) : (
+                  <span className="text-[13px] text-stone-700">{opt.name}</span>
+                )}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -185,30 +262,33 @@ export default function AssetsClientFilters({
 
         <div className="flex items-center gap-2 flex-wrap">
           <SlidersHorizontal size={13} className="text-stone-400" />
-          <select
-            value={filterStatus}
-            onChange={(e) => updateParams({ status: e.target.value || undefined, page: undefined })}
-            className="text-[12.5px] border border-stone-200 rounded-lg px-2.5 py-2 bg-white text-stone-600 focus:outline-none focus:ring-1 focus:ring-stone-300 cursor-pointer"
-          >
-            <option value="">All statuses</option>
-            {statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-          <select
-            value={filterCategory}
-            onChange={(e) => updateParams({ cat: e.target.value || undefined, page: undefined })}
-            className="text-[12.5px] border border-stone-200 rounded-lg px-2.5 py-2 bg-white text-stone-600 focus:outline-none focus:ring-1 focus:ring-stone-300 cursor-pointer"
-          >
-            <option value="">All categories</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-          <select
-            value={filterDept}
-            onChange={(e) => updateParams({ dept: e.target.value || undefined, page: undefined })}
-            className="text-[12.5px] border border-stone-200 rounded-lg px-2.5 py-2 bg-white text-stone-600 focus:outline-none focus:ring-1 focus:ring-stone-300 cursor-pointer"
-          >
-            <option value="">All departments</option>
-            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          <FilterDropdown
+            label="Status"
+            options={statuses}
+            selectedIds={filterStatuses}
+            onToggle={(id) => toggleFilter("status", id, filterStatuses)}
+            renderOption={(opt) => {
+              const cfg = getStatusConfig(opt.name);
+              return (
+                <span className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                  <span className="text-[13px] text-stone-700">{opt.name}</span>
+                </span>
+              );
+            }}
+          />
+          <FilterDropdown
+            label="Category"
+            options={categories}
+            selectedIds={filterCategories}
+            onToggle={(id) => toggleFilter("cat", id, filterCategories)}
+          />
+          <FilterDropdown
+            label="Department"
+            options={departments}
+            selectedIds={filterDepts}
+            onToggle={(id) => toggleFilter("dept", id, filterDepts)}
+          />
           {hasFilters && (
             <button
               onClick={() => updateParams({ q: undefined, status: undefined, cat: undefined, dept: undefined, page: undefined })}

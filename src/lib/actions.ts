@@ -772,9 +772,18 @@ export async function getAllAssetsForExport(filters: {
   `);
 
   if (filters.q) query = query.or(`description.ilike.%${filters.q}%,serial_number.ilike.%${filters.q}%`);
-  if (filters.status) query = query.eq("status_id", filters.status);
-  if (filters.cat) query = query.eq("category_id", filters.cat);
-  if (filters.dept) query = query.eq("owning_department_id", filters.dept);
+  if (filters.status) {
+    const ids = filters.status.split(",").filter(Boolean);
+    if (ids.length > 0) query = query.in("status_id", ids);
+  }
+  if (filters.cat) {
+    const ids = filters.cat.split(",").filter(Boolean);
+    if (ids.length > 0) query = query.in("category_id", ids);
+  }
+  if (filters.dept) {
+    const ids = filters.dept.split(",").filter(Boolean);
+    if (ids.length > 0) query = query.in("owning_department_id", ids);
+  }
 
   const { data, error } = await query.order("asset_code");
   if (error) return { error: error.message };
