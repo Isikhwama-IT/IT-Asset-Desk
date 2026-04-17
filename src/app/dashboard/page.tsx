@@ -3,7 +3,7 @@ import { formatDate, getStatusConfig, getCategoryIcon } from "@/lib/utils";
 import Link from "next/link";
 import { Monitor, Users, Package, AlertTriangle, ArrowUpRight, Clock, ShieldAlert } from "lucide-react";
 import type { AssetWithRelations } from "@/types/database";
-import AnimatedStatCards from "@/components/AnimatedStatCards";
+import AnimatedStatCards from "@/components/AnimatedStatCardsWrapper";
 import DashboardCharts from "@/components/DashboardChartsWrapper";
 
 type ExpiryAlert = { asset: AssetWithRelations; type: "Warranty" | "EOL"; date: string; daysRemaining: number };
