@@ -26,7 +26,7 @@ const TABS = [
   { key: "categories",  label: "Categories" },
   { key: "statuses",    label: "Statuses" },
   { key: "departments", label: "Departments" },
-  { key: "locations",   label: "Locations" },
+  { key: "locations",   label: "Sites" },
   { key: "job_levels",  label: "Job Levels" },
 ] as const;
 

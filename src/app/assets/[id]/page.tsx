@@ -409,7 +409,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
               ) : "—"
             } />
             <InfoRow icon={User} label="Job Level" value={asset.assigned_job_level?.name} />
-            <InfoRow icon={MapPin} label="Location" value={asset.location?.name} />
+            <InfoRow icon={MapPin} label="Site" value={asset.location?.name} />
           </Section>
 
           {/* Performance Rating */}

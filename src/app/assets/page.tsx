@@ -10,6 +10,7 @@ interface SearchParams {
   status?: string;
   cat?: string;
   dept?: string;
+  site?: string;
 }
 
 async function getAssetsData(params: SearchParams) {
@@ -61,6 +62,10 @@ async function getAssetsData(params: SearchParams) {
   if (params.dept) {
     const ids = params.dept.split(",").filter(Boolean);
     if (ids.length > 0) query = query.in("owning_department_id", ids);
+  }
+  if (params.site) {
+    const ids = params.site.split(",").filter(Boolean);
+    if (ids.length > 0) query = query.in("location_id", ids);
   }
 
   const { data: assets, count } = await query

@@ -112,7 +112,8 @@ export default function AssetsClientFilters({
   const filterStatuses = new Set(searchParams.get("status")?.split(",").filter(Boolean) ?? []);
   const filterCategories = new Set(searchParams.get("cat")?.split(",").filter(Boolean) ?? []);
   const filterDepts = new Set(searchParams.get("dept")?.split(",").filter(Boolean) ?? []);
-  const hasFilters = q || filterStatuses.size > 0 || filterCategories.size > 0 || filterDepts.size > 0;
+  const filterSites = new Set(searchParams.get("site")?.split(",").filter(Boolean) ?? []);
+  const hasFilters = q || filterStatuses.size > 0 || filterCategories.size > 0 || filterDepts.size > 0 || filterSites.size > 0;
 
   function toggleFilter(param: string, id: string, current: Set<string>) {
     const next = new Set(current);
@@ -125,7 +126,7 @@ export default function AssetsClientFilters({
   const [exporting, setExporting] = useState(false);
 
   function buildAndDownloadCSV(rows: { code: string; description: string; category: string; serial: string; status: string; department: string; assignedTo: string; location: string; purchaseDate: string }[]) {
-    const headers = ["Code", "Description", "Category", "Serial", "Status", "Department", "Assigned To", "Location", "Purchase Date"];
+    const headers = ["Code", "Description", "Category", "Serial", "Status", "Department", "Assigned To", "Site", "Purchase Date"];
     const data = rows.map((r) => [
       r.code,
       `"${r.description.replace(/"/g, '""')}"`,
@@ -171,13 +172,14 @@ export default function AssetsClientFilters({
       status: filterStatuses.size > 0 ? [...filterStatuses].join(",") : undefined,
       cat: filterCategories.size > 0 ? [...filterCategories].join(",") : undefined,
       dept: filterDepts.size > 0 ? [...filterDepts].join(",") : undefined,
+      site: filterSites.size > 0 ? [...filterSites].join(",") : undefined,
     });
     setExporting(false);
     if (res.error || !res.data) return;
     buildAndDownloadCSV(res.data);
   }
 
-  const GRID = "grid-cols-[1.5rem_2.5rem_1fr_7rem_9rem_8rem_8rem_2rem]";
+  const GRID = "grid-cols-[1.5rem_2.5rem_1fr_7rem_9rem_8rem_7rem_7rem_2rem]";
 
   function FilterDropdown({
     label,
@@ -289,9 +291,15 @@ export default function AssetsClientFilters({
             selectedIds={filterDepts}
             onToggle={(id) => toggleFilter("dept", id, filterDepts)}
           />
+          <FilterDropdown
+            label="Site"
+            options={locations}
+            selectedIds={filterSites}
+            onToggle={(id) => toggleFilter("site", id, filterSites)}
+          />
           {hasFilters && (
             <button
-              onClick={() => updateParams({ q: undefined, status: undefined, cat: undefined, dept: undefined, page: undefined })}
+              onClick={() => updateParams({ q: undefined, status: undefined, cat: undefined, dept: undefined, site: undefined, page: undefined })}
               className="flex items-center gap-1 text-[12px] text-stone-400 hover:text-stone-700 px-2 py-1 rounded-md hover:bg-stone-100 transition-colors"
             >
               <X size={12} /> Clear
@@ -335,7 +343,7 @@ export default function AssetsClientFilters({
               className="w-3.5 h-3.5 rounded border-stone-300 accent-stone-800 cursor-pointer"
             />
           </div>
-          {["#", "Description", "Serial Number", "Department", "Assigned To", "Status", ""].map((h) => (
+          {["#", "Description", "Serial Number", "Department", "Assigned To", "Status", "Site", ""].map((h) => (
             <span key={h} className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">
               {h}
             </span>
@@ -387,6 +395,7 @@ export default function AssetsClientFilters({
                     <span className={`w-1 h-1 rounded-full flex-shrink-0 ${cfg.dot}`} />
                     {asset.status?.name ?? "—"}
                   </span>
+                  <span className="text-[12px] text-stone-500 truncate">{asset.location?.name ?? "—"}</span>
                   <ArrowUpRight size={13} className="text-stone-200 group-hover:text-stone-400 justify-self-end" />
                 </motion.div>
               );

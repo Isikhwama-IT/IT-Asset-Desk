@@ -138,9 +138,9 @@ export function AddAssetModal({
             </Select>
           </FormField>
 
-          <FormField label="Location">
+          <FormField label="Site">
             <Select value={assignLocationId} onChange={(e) => setAssignLocationId(e.target.value)}>
-              <option value="">No location</option>
+              <option value="">Select site…</option>
               {lookups.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
           </FormField>
@@ -341,9 +341,9 @@ export function EditAssetModal({
           <FormField label="Purchase Date">
             <Input type="date" value={form.purchase_date} onChange={(e) => set("purchase_date", e.target.value)} />
           </FormField>
-          <FormField label="Location">
+          <FormField label="Site">
             <Select value={form.location_id} onChange={(e) => set("location_id", e.target.value)}>
-              <option value="">No location</option>
+              <option value="">Select site…</option>
               {lookups.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
           </FormField>
@@ -601,9 +601,9 @@ export function AssignAssetModal({
             </div>
             {storageStep && (
               <div className="space-y-2 pt-1 border-t border-sky-200">
-                <p className="text-[12px] font-medium text-sky-800">Select storage location</p>
+                <p className="text-[12px] font-medium text-sky-800">Which site is this asset at?</p>
                 <Select value={storageLocationId} onChange={(e) => setStorageLocationId(e.target.value)}>
-                  <option value="">No specific location</option>
+                  <option value="">Select site…</option>
                   {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                 </Select>
                 <div className="flex gap-2 pt-1">
@@ -625,9 +625,9 @@ export function AssignAssetModal({
         </FormField>
 
         <FormGrid>
-          <FormField label="Location">
+          <FormField label="Site">
             <Select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
-              <option value="">No location</option>
+              <option value="">Select site…</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
           </FormField>
