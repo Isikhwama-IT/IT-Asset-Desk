@@ -115,11 +115,12 @@ export default async function DashboardPage() {
     );
   }
 
+  const attentionColor = data.alertAssets.length > 0 ? "#dc2626" : "#859474";
   const statCards = [
-    { label: "Total Assets", value: data.totalAssets, icon: Package, sub: `${data.inUse} in use · ${data.inStorage} in storage`, accent: "#C04F28", iconBg: "#f0d4c8", iconColor: "#C04F28" },
-    { label: "Active Users", value: data.totalContacts, icon: Users, sub: "Contacts & teams", accent: "#415445", iconBg: "#eef3e6", iconColor: "#415445" },
-    { label: "In Use", value: data.inUse, icon: Monitor, sub: `${data.totalAssets > 0 ? Math.round((data.inUse / data.totalAssets) * 100) : 0}% of inventory`, accent: "#859474", iconBg: "#f0f2ec", iconColor: "#859474" },
-    { label: "Needs Attention", value: data.alertAssets.length, icon: AlertTriangle, sub: "Damaged · Repair · Lost · Stolen", accent: data.alertAssets.length > 0 ? "#dc2626" : "#859474", iconBg: data.alertAssets.length > 0 ? "#fef2f2" : "#f0f2ec", iconColor: data.alertAssets.length > 0 ? "#dc2626" : "#859474" },
+    { label: "Total Assets", value: data.totalAssets, icon: <Package size={15} style={{ color: "#C04F28" }} />, sub: `${data.inUse} in use · ${data.inStorage} in storage`, accent: "#C04F28", iconBg: "#f0d4c8" },
+    { label: "Active Users", value: data.totalContacts, icon: <Users size={15} style={{ color: "#415445" }} />, sub: "Contacts & teams", accent: "#415445", iconBg: "#eef3e6" },
+    { label: "In Use", value: data.inUse, icon: <Monitor size={15} style={{ color: "#859474" }} />, sub: `${data.totalAssets > 0 ? Math.round((data.inUse / data.totalAssets) * 100) : 0}% of inventory`, accent: "#859474", iconBg: "#f0f2ec" },
+    { label: "Needs Attention", value: data.alertAssets.length, icon: <AlertTriangle size={15} style={{ color: attentionColor }} />, sub: "Damaged · Repair · Lost · Stolen", accent: attentionColor, iconBg: data.alertAssets.length > 0 ? "#fef2f2" : "#f0f2ec" },
   ];
 
   return (

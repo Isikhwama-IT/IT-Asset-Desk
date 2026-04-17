@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/motion";
-import type { LucideIcon } from "lucide-react";
+import type React from "react";
 
 function useCountUp(target: number, duration = 1200) {
   const [value, setValue] = useState(0);
@@ -28,11 +28,10 @@ function useCountUp(target: number, duration = 1200) {
 interface StatCard {
   label: string;
   value: number;
-  icon: LucideIcon;
+  icon: React.ReactNode;
   sub: string;
   accent: string;
   iconBg: string;
-  iconColor: string;
 }
 
 function StatCard({ card }: { card: StatCard }) {
@@ -47,7 +46,7 @@ function StatCard({ card }: { card: StatCard }) {
     >
       <div className="flex items-start justify-between mb-3">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: card.iconBg }}>
-          <card.icon size={15} style={{ color: card.iconColor }} />
+          {card.icon}
         </div>
       </div>
       <p
