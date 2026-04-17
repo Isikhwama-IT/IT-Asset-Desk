@@ -187,12 +187,14 @@ export default function AssetsClientFilters({
     selectedIds,
     onToggle,
     renderOption,
+    showNullOption,
   }: {
     label: string;
     options: { id: string; name: string }[];
     selectedIds: Set<string>;
     onToggle: (id: string) => void;
     renderOption?: (opt: { id: string; name: string }) => React.ReactNode;
+    showNullOption?: boolean;
   }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
@@ -240,6 +242,20 @@ export default function AssetsClientFilters({
                 )}
               </label>
             ))}
+            {showNullOption && (
+              <>
+                {options.length > 0 && <div className="my-1 border-t border-stone-100" />}
+                <label className="flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has("__none__")}
+                    onChange={() => onToggle("__none__")}
+                    className="w-3.5 h-3.5 rounded border-stone-300 accent-stone-800 flex-shrink-0"
+                  />
+                  <span className="text-[13px] text-stone-400 italic">Unassigned</span>
+                </label>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -290,12 +306,14 @@ export default function AssetsClientFilters({
             options={departments}
             selectedIds={filterDepts}
             onToggle={(id) => toggleFilter("dept", id, filterDepts)}
+            showNullOption
           />
           <FilterDropdown
             label="Site"
             options={locations}
             selectedIds={filterSites}
             onToggle={(id) => toggleFilter("site", id, filterSites)}
+            showNullOption
           />
           {hasFilters && (
             <button

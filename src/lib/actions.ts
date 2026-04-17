@@ -783,11 +783,19 @@ export async function getAllAssetsForExport(filters: {
   }
   if (filters.dept) {
     const ids = filters.dept.split(",").filter(Boolean);
-    if (ids.length > 0) query = query.in("owning_department_id", ids);
+    const hasNull = ids.includes("__none__");
+    const realIds = ids.filter((id) => id !== "__none__");
+    if (hasNull && realIds.length === 0) query = query.is("owning_department_id", null);
+    else if (hasNull) query = query.or(`owning_department_id.is.null,owning_department_id.in.(${realIds.join(",")})`);
+    else if (realIds.length > 0) query = query.in("owning_department_id", realIds);
   }
   if (filters.site) {
     const ids = filters.site.split(",").filter(Boolean);
-    if (ids.length > 0) query = query.in("location_id", ids);
+    const hasNull = ids.includes("__none__");
+    const realIds = ids.filter((id) => id !== "__none__");
+    if (hasNull && realIds.length === 0) query = query.is("location_id", null);
+    else if (hasNull) query = query.or(`location_id.is.null,location_id.in.(${realIds.join(",")})`);
+    else if (realIds.length > 0) query = query.in("location_id", realIds);
   }
 
   const { data, error } = await query.order("asset_code");
