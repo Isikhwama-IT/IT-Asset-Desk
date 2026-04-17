@@ -83,7 +83,7 @@ async function getDashboardData() {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([key, count]) => {
       const [y, m] = key.split("-");
-      const label = new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString("en-ZA", { month: "short", year: "2-digit" });
+      const label = new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
       return { month: label, count };
     });
 
@@ -187,7 +187,7 @@ export default async function DashboardPage() {
           Dashboard
         </h1>
         <p className="text-sm text-stone-500 mt-0.5">
-          {new Date().toLocaleDateString("en-ZA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          {new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
         </p>
       </div>
 

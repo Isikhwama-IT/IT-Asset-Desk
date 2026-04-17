@@ -43,7 +43,7 @@ const ACTION_COLORS: Record<string, string> = {
 };
 
 function formatDateTime(ts: string) {
-  return new Date(ts).toLocaleString("en-ZA", {
+  return new Date(ts).toLocaleString("en-GB", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });
