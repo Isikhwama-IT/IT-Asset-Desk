@@ -3,8 +3,10 @@ import { formatDate, getStatusConfig, getCategoryIcon } from "@/lib/utils";
 import Link from "next/link";
 import { Monitor, Users, Package, AlertTriangle, ArrowUpRight, Clock, ShieldAlert } from "lucide-react";
 import type { AssetWithRelations } from "@/types/database";
-import DashboardCharts from "@/components/DashboardCharts";
+import dynamic from "next/dynamic";
 import AnimatedStatCards from "@/components/AnimatedStatCards";
+
+const DashboardCharts = dynamic(() => import("@/components/DashboardCharts"), { ssr: false });
 
 type ExpiryAlert = { asset: AssetWithRelations; type: "Warranty" | "EOL"; date: string; daysRemaining: number };
 
