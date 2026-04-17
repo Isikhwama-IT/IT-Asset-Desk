@@ -143,7 +143,7 @@ export default function AssetsClientFilters({
   // Export current page selection (no server round-trip needed)
   function exportSelected(ids: Set<string>) {
     const rows = assets.filter((a) => ids.has(a.id)).map((a) => ({
-      code: a.asset_code ?? "",
+      code: String(a.asset_code ?? ""),
       description: a.description ?? "",
       category: a.category?.name ?? "",
       serial: a.serial_number ?? "",

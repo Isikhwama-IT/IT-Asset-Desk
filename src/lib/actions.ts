@@ -781,7 +781,7 @@ export async function getAllAssetsForExport(filters: {
 
   return {
     data: (data ?? []).map((a: any) => ({
-      code: a.asset_code ?? "",
+      code: String(a.asset_code ?? ""),
       description: a.description ?? "",
       category: a.category?.name ?? "",
       serial: a.serial_number ?? "",
