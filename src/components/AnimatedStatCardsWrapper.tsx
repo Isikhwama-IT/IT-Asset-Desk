@@ -1,7 +1,13 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { useState, useEffect } from "react";
+import AnimatedStatCards from "@/components/AnimatedStatCards";
 
-const AnimatedStatCards = dynamic(() => import("@/components/AnimatedStatCards"), { ssr: false });
+type Props = Parameters<typeof AnimatedStatCards>[0];
 
-export default AnimatedStatCards;
+export default function AnimatedStatCardsWrapper(props: Props) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <div className="grid grid-cols-4 gap-4 mb-8" style={{ height: 104 }} />;
+  return <AnimatedStatCards {...props} />;
+}

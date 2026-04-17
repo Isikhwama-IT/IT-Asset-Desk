@@ -1,7 +1,13 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { useState, useEffect } from "react";
+import DashboardCharts from "@/components/DashboardCharts";
 
-const DashboardCharts = dynamic(() => import("@/components/DashboardCharts"), { ssr: false });
+type Props = Parameters<typeof DashboardCharts>[0];
 
-export default DashboardCharts;
+export default function DashboardChartsWrapper(props: Props) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return <div className="mb-8" style={{ height: 200 }} />;
+  return <DashboardCharts {...props} />;
+}
