@@ -15,7 +15,6 @@ async function getDashboardData() {
     { data: contacts },
     { data: statuses },
     { data: categories },
-    { data: appSettings },
   ] = await Promise.all([
     supabase.from("assets").select(`
       *,
@@ -29,8 +28,19 @@ async function getDashboardData() {
     supabase.from("contacts").select("*").eq("is_active", true),
     supabase.from("statuses").select("*"),
     supabase.from("categories").select("*"),
-    supabase.from("app_settings").select("*"),
   ]);
+
+  // app_settings table may not exist yet — fetch separately with fallback
+  let warrantyAlertDays = 60;
+  try {
+    const { data: appSettings } = await supabase.from("app_settings").select("key, value");
+    warrantyAlertDays = parseInt(
+      (appSettings ?? []).find((s: { key: string; value: string }) => s.key === "warranty_alert_days")?.value ?? "60",
+      10
+    );
+  } catch {
+    // table not yet created, use default
+  }
 
   const typedAssets = (assets ?? []) as AssetWithRelations[];
 
@@ -85,10 +95,6 @@ async function getDashboardData() {
     (a) => ["Damaged", "Under Repair", "Lost", "Stolen"].includes(a.status?.name ?? "")
   );
 
-  const warrantyAlertDays = parseInt(
-    (appSettings ?? []).find((s) => s.key === "warranty_alert_days")?.value ?? "60",
-    10
-  );
   const now = new Date();
   const threshold = new Date(now.getTime() + warrantyAlertDays * 24 * 60 * 60 * 1000);
 
