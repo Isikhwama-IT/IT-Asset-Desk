@@ -8,13 +8,20 @@ import AnimatedStatCards from "@/components/AnimatedStatCards";
 
 type ExpiryAlert = { asset: AssetWithRelations; type: "Warranty" | "EOL"; date: string; daysRemaining: number };
 
+const EMPTY_DATA = {
+  totalAssets: 0, totalContacts: 0, statusCounts: {} as Record<string, number>,
+  topCategories: [] as [string, number][], topDepartments: [] as { name: string; count: number }[],
+  assetsByMonth: [] as { month: string; count: number }[], recentAssets: [] as AssetWithRelations[],
+  alertAssets: [] as AssetWithRelations[], expiryAlerts: [] as ExpiryAlert[],
+  warrantyAlertDays: 60, inUse: 0, inStorage: 0,
+};
+
 async function getDashboardData() {
+  try {
   const supabase = await createSupabaseServerClient();
   const [
     { data: assets },
     { data: contacts },
-    { data: statuses },
-    { data: categories },
   ] = await Promise.all([
     supabase.from("assets").select(`
       *,
@@ -26,8 +33,6 @@ async function getDashboardData() {
       assigned_job_level:job_levels(*)
     `).order("asset_code"),
     supabase.from("contacts").select("*").eq("is_active", true),
-    supabase.from("statuses").select("*"),
-    supabase.from("categories").select("*"),
   ]);
 
   // app_settings table may not exist yet — fetch separately with fallback
@@ -131,6 +136,10 @@ async function getDashboardData() {
     inUse: statusCounts["In Use"] ?? 0,
     inStorage: statusCounts["In Storage"] ?? 0,
   };
+  } catch (err) {
+    console.error("[Dashboard] getDashboardData failed:", err);
+    return EMPTY_DATA;
+  }
 }
 
 export default async function DashboardPage() {
