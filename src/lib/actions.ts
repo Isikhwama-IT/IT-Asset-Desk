@@ -751,3 +751,45 @@ export async function deleteAssetRequest(id: string): Promise<{ success?: boolea
   revalidatePath("/requests");
   return { success: true };
 }
+
+export async function getAllAssetsForExport(filters: {
+  q?: string;
+  status?: string;
+  cat?: string;
+  dept?: string;
+}): Promise<{ data?: { code: string; description: string; category: string; serial: string; status: string; department: string; assignedTo: string; location: string; purchaseDate: string; }[]; error?: string }> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated." };
+
+  let query = supabase.from("assets").select(`
+    asset_code, description, serial_number, purchase_date,
+    category:categories(name),
+    status:statuses(name),
+    owning_department:departments(name),
+    assigned_to_contact:contacts!assets_assigned_to_contact_id_fkey(full_name),
+    location:locations(name)
+  `);
+
+  if (filters.q) query = query.or(`description.ilike.%${filters.q}%,serial_number.ilike.%${filters.q}%`);
+  if (filters.status) query = query.eq("status_id", filters.status);
+  if (filters.cat) query = query.eq("category_id", filters.cat);
+  if (filters.dept) query = query.eq("owning_department_id", filters.dept);
+
+  const { data, error } = await query.order("asset_code");
+  if (error) return { error: error.message };
+
+  return {
+    data: (data ?? []).map((a: any) => ({
+      code: a.asset_code ?? "",
+      description: a.description ?? "",
+      category: a.category?.name ?? "",
+      serial: a.serial_number ?? "",
+      status: a.status?.name ?? "",
+      department: a.owning_department?.name ?? "",
+      assignedTo: a.assigned_to_contact?.full_name ?? "",
+      location: a.location?.name ?? "",
+      purchaseDate: a.purchase_date ?? "",
+    })),
+  };
+}

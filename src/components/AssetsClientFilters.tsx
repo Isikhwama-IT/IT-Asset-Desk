@@ -18,7 +18,7 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { AddAssetModal } from "@/components/AssetModals";
 import { useAuth } from "@/context/AuthContext";
-import { bulkChangeAssetStatus } from "@/lib/actions";
+import { bulkChangeAssetStatus, getAllAssetsForExport } from "@/lib/actions";
 import type {
   AssetWithRelations,
   Status,
@@ -115,19 +115,20 @@ export default function AssetsClientFilters({
   const hasFilters = q || filterStatus || filterCategory || filterDept;
 
   // ── CSV export ───────────────────────────────────────────────────────────
-  function exportCSV(ids?: Set<string>) {
-    const rows = ids ? assets.filter((a) => ids.has(a.id)) : assets;
+  const [exporting, setExporting] = useState(false);
+
+  function buildAndDownloadCSV(rows: { code: string; description: string; category: string; serial: string; status: string; department: string; assignedTo: string; location: string; purchaseDate: string }[]) {
     const headers = ["Code", "Description", "Category", "Serial", "Status", "Department", "Assigned To", "Location", "Purchase Date"];
-    const data = rows.map((a) => [
-      a.asset_code,
-      `"${a.description}"`,
-      a.category?.name ?? "",
-      a.serial_number ?? "",
-      a.status?.name ?? "",
-      a.owning_department?.name ?? "",
-      a.assigned_to_contact?.full_name ?? "",
-      a.location?.name ?? "",
-      a.purchase_date ?? "",
+    const data = rows.map((r) => [
+      r.code,
+      `"${r.description.replace(/"/g, '""')}"`,
+      r.category,
+      r.serial,
+      r.status,
+      r.department,
+      r.assignedTo,
+      r.location,
+      r.purchaseDate,
     ]);
     const csv = [headers, ...data].map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -137,6 +138,31 @@ export default function AssetsClientFilters({
     a.download = `assets-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // Export current page selection (no server round-trip needed)
+  function exportSelected(ids: Set<string>) {
+    const rows = assets.filter((a) => ids.has(a.id)).map((a) => ({
+      code: a.asset_code ?? "",
+      description: a.description ?? "",
+      category: a.category?.name ?? "",
+      serial: a.serial_number ?? "",
+      status: a.status?.name ?? "",
+      department: a.owning_department?.name ?? "",
+      assignedTo: a.assigned_to_contact?.full_name ?? "",
+      location: a.location?.name ?? "",
+      purchaseDate: a.purchase_date ?? "",
+    }));
+    buildAndDownloadCSV(rows);
+  }
+
+  // Full export — fetches all matching assets from server
+  async function exportAll() {
+    setExporting(true);
+    const res = await getAllAssetsForExport({ q: q || undefined, status: filterStatus || undefined, cat: filterCategory || undefined, dept: filterDept || undefined });
+    setExporting(false);
+    if (res.error || !res.data) return;
+    buildAndDownloadCSV(res.data);
   }
 
   const GRID = "grid-cols-[1.5rem_2.5rem_1fr_7rem_9rem_8rem_8rem_2rem]";
@@ -199,10 +225,11 @@ export default function AssetsClientFilters({
 
         <div className="flex items-center gap-2 ml-auto">
           <button
-            onClick={() => exportCSV()}
-            className="flex items-center gap-1.5 text-[12.5px] font-medium text-stone-500 border border-stone-200 px-3 py-2 rounded-lg hover:bg-stone-50 transition-colors"
+            onClick={exportAll}
+            disabled={exporting}
+            className="flex items-center gap-1.5 text-[12.5px] font-medium text-stone-500 border border-stone-200 px-3 py-2 rounded-lg hover:bg-stone-50 transition-colors disabled:opacity-50"
           >
-            <Download size={13} /> Export
+            <Download size={13} /> {exporting ? "Exporting…" : `Export all ${total}`}
           </button>
           {isAdmin && (
             <button
@@ -352,11 +379,11 @@ export default function AssetsClientFilters({
 
           {/* Export selected */}
           <button
-            onClick={() => exportCSV(selectedIds)}
+            onClick={() => exportSelected(selectedIds)}
             disabled={bulkLoading}
             className="flex items-center gap-1.5 text-[12.5px] font-medium text-stone-300 hover:text-white transition-colors disabled:opacity-50"
           >
-            <Download size={13} /> Export CSV
+            <Download size={13} /> Export selected
           </button>
 
           {/* Clear */}
