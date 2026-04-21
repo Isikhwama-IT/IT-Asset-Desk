@@ -418,6 +418,67 @@ export async function bulkChangeAssetStatus(
   return { success: true };
 }
 
+export async function bulkChangeStatusAllFiltered(
+  filters: { q?: string; status?: string; cat?: string; dept?: string; site?: string; contact?: string; missing?: string },
+  newStatusId: string,
+): Promise<{ success?: boolean; error?: string; count?: number }> {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError ?? "Auth error" };
+
+  let query = supabase.from("assets").select("id, status_id");
+  if (filters.q) query = query.or(`description.ilike.%${filters.q}%,serial_number.ilike.%${filters.q}%`);
+  if (filters.status) { const ids = filters.status.split(",").filter(Boolean); if (ids.length) query = query.in("status_id", ids); }
+  if (filters.cat)    { const ids = filters.cat.split(",").filter(Boolean);    if (ids.length) query = query.in("category_id", ids); }
+  if (filters.dept)   { const ids = filters.dept.split(",").filter(Boolean);   if (ids.length) query = query.in("owning_department_id", ids); }
+  if (filters.site)   { const ids = filters.site.split(",").filter(Boolean);   if (ids.length) query = query.in("location_id", ids); }
+  if (filters.contact){ const ids = filters.contact.split(",").filter(Boolean); if (ids.length) query = query.in("assigned_to_contact_id", ids); }
+  if (filters.missing) {
+    const fields = filters.missing.split(",").filter(Boolean);
+    if (fields.includes("dept"))    query = query.is("owning_department_id", null);
+    if (fields.includes("site"))    query = query.is("location_id", null);
+    if (fields.includes("contact")) query = query.is("assigned_to_contact_id", null);
+  }
+
+  const { data: existing, error: fetchError } = await query;
+  if (fetchError) return { error: fetchError.message };
+  if (!existing || existing.length === 0) return { success: true, count: 0 };
+
+  const assetIds = existing.map((e) => e.id);
+  const now = new Date().toISOString();
+  const changedByName = user.user_metadata?.full_name ?? user.email ?? "Unknown";
+
+  const { error: updateError } = await supabase
+    .from("assets")
+    .update({ status_id: newStatusId, updated_at: now })
+    .in("id", assetIds);
+  if (updateError) return { error: updateError.message };
+
+  for (const asset of existing) {
+    if (asset.status_id === newStatusId) continue;
+    await supabase.from("asset_status_history").insert({
+      id: crypto.randomUUID(), asset_id: asset.id,
+      old_status_id: asset.status_id, new_status_id: newStatusId,
+      reason: "Bulk status change (all filtered)", changed_at: now,
+    } as StatusHistoryInsert);
+    await supabase.from("asset_audit_log").insert({
+      id: crypto.randomUUID(), asset_id: asset.id,
+      changed_by_user_id: user.id, changed_by_name: changedByName,
+      action: "update",
+      changes: { status_id: { old: asset.status_id, new: newStatusId, reason: "Bulk status change (all filtered)" } } as Json,
+    } as AuditInsert);
+  }
+
+  await logActivity({
+    userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null,
+    action: "bulk_change_status", entityType: "asset",
+    details: { asset_count: assetIds.length, scope: "all_filtered" },
+  });
+
+  revalidatePath("/assets");
+  revalidatePath("/dashboard");
+  return { success: true, count: assetIds.length };
+}
+
 export async function bulkAssignAssets(
   assetIds: string[],
   contactId: string,

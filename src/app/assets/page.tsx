@@ -12,6 +12,7 @@ interface SearchParams {
   dept?: string;
   site?: string;
   missing?: string;
+  contact?: string;
 }
 
 async function getAssetsData(params: SearchParams) {
@@ -67,6 +68,10 @@ async function getAssetsData(params: SearchParams) {
   if (params.site) {
     const ids = params.site.split(",").filter(Boolean);
     if (ids.length > 0) query = query.in("location_id", ids);
+  }
+  if (params.contact) {
+    const ids = params.contact.split(",").filter(Boolean);
+    if (ids.length > 0) query = query.in("assigned_to_contact_id", ids);
   }
   if (params.missing) {
     const fields = params.missing.split(",").filter(Boolean);

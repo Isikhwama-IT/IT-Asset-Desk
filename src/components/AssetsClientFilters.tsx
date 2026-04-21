@@ -18,7 +18,7 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { AddAssetModal } from "@/components/AssetModals";
 import { useAuth } from "@/context/AuthContext";
-import { bulkChangeAssetStatus, bulkAssignAssets, getAllAssetsForExport } from "@/lib/actions";
+import { bulkChangeAssetStatus, bulkAssignAssets, bulkChangeStatusAllFiltered, getAllAssetsForExport } from "@/lib/actions";
 import type {
   AssetWithRelations,
   Status,
@@ -65,6 +65,8 @@ export default function AssetsClientFilters({
   const [showBulkStatus, setShowBulkStatus] = useState(false);
   const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [bulkAssignSearch, setBulkAssignSearch] = useState("");
+  const [showAllStatus, setShowAllStatus] = useState(false);
+  const [allStatusLoading, setAllStatusLoading] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
 
   const allSelected = assets.length > 0 && assets.every((a) => selectedIds.has(a.id));
@@ -90,6 +92,22 @@ export default function AssetsClientFilters({
     await bulkChangeAssetStatus(Array.from(selectedIds), newStatusId);
     setBulkLoading(false);
     setSelectedIds(new Set());
+    router.refresh();
+  }
+
+  async function handleChangeAllStatus(newStatusId: string) {
+    setAllStatusLoading(true);
+    setShowAllStatus(false);
+    await bulkChangeStatusAllFiltered({
+      q: q || undefined,
+      status: filterStatuses.size > 0 ? [...filterStatuses].join(",") : undefined,
+      cat: filterCategories.size > 0 ? [...filterCategories].join(",") : undefined,
+      dept: filterDepts.size > 0 ? [...filterDepts].join(",") : undefined,
+      site: filterSites.size > 0 ? [...filterSites].join(",") : undefined,
+      contact: filterContacts.size > 0 ? [...filterContacts].join(",") : undefined,
+      missing: missingFields.size > 0 ? [...missingFields].join(",") : undefined,
+    }, newStatusId);
+    setAllStatusLoading(false);
     router.refresh();
   }
 
@@ -125,8 +143,9 @@ export default function AssetsClientFilters({
   const filterCategories = new Set(searchParams.get("cat")?.split(",").filter(Boolean) ?? []);
   const filterDepts = new Set(searchParams.get("dept")?.split(",").filter(Boolean) ?? []);
   const filterSites = new Set(searchParams.get("site")?.split(",").filter(Boolean) ?? []);
+  const filterContacts = new Set(searchParams.get("contact")?.split(",").filter(Boolean) ?? []);
   const missingFields = new Set(searchParams.get("missing")?.split(",").filter(Boolean) ?? []);
-  const hasFilters = q || filterStatuses.size > 0 || filterCategories.size > 0 || filterDepts.size > 0 || filterSites.size > 0 || missingFields.size > 0;
+  const hasFilters = q || filterStatuses.size > 0 || filterCategories.size > 0 || filterDepts.size > 0 || filterSites.size > 0 || filterContacts.size > 0 || missingFields.size > 0;
 
   function toggleFilter(param: string, id: string, current: Set<string>) {
     const next = new Set(current);
@@ -186,6 +205,7 @@ export default function AssetsClientFilters({
       cat: filterCategories.size > 0 ? [...filterCategories].join(",") : undefined,
       dept: filterDepts.size > 0 ? [...filterDepts].join(",") : undefined,
       site: filterSites.size > 0 ? [...filterSites].join(",") : undefined,
+      contact: filterContacts.size > 0 ? [...filterContacts].join(",") : undefined,
       missing: missingFields.size > 0 ? [...missingFields].join(",") : undefined,
     });
     setExporting(false);
@@ -254,6 +274,67 @@ export default function AssetsClientFilters({
                 )}
               </label>
             ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function AssigneeDropdown({ contacts: allContacts, selected, onToggle }: { contacts: Contact[]; selected: Set<string>; onToggle: (id: string) => void }) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+      function handler(e: MouseEvent) {
+        if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      }
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }, []);
+    const filtered = allContacts.filter((c) => c.full_name.toLowerCase().includes(search.toLowerCase()));
+    const count = selected.size;
+    return (
+      <div ref={ref} className="relative">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className={`flex items-center gap-1.5 text-[12.5px] border rounded-lg px-2.5 py-2 bg-white transition-colors focus:outline-none focus:ring-1 focus:ring-stone-300 ${
+            count > 0 ? "border-stone-400 text-stone-800" : "border-stone-200 text-stone-600 hover:border-stone-300"
+          }`}
+        >
+          Assigned To
+          {count > 0 && (
+            <span className="bg-stone-900 text-white text-[10px] font-semibold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+              {count}
+            </span>
+          )}
+          <ChevronDown size={11} className={`text-stone-400 transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+        </button>
+        {open && (
+          <div className="absolute top-full mt-1.5 left-0 z-20 bg-white border border-stone-200 rounded-xl shadow-lg min-w-[210px]">
+            <div className="p-2 border-b border-stone-100">
+              <input
+                autoFocus
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search contacts…"
+                className="w-full text-[12.5px] text-stone-800 placeholder:text-stone-400 px-2 py-1.5 border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-300"
+              />
+            </div>
+            <div className="max-h-52 overflow-y-auto py-1.5">
+              {filtered.map((c) => (
+                <label key={c.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(c.id)}
+                    onChange={() => onToggle(c.id)}
+                    className="w-3.5 h-3.5 rounded border-stone-300 accent-stone-800 flex-shrink-0"
+                  />
+                  <span className="text-[13px] text-stone-700 truncate">{c.full_name}</span>
+                </label>
+              ))}
+              {filtered.length === 0 && <p className="px-3 py-2 text-[12px] text-stone-400">No contacts found</p>}
+            </div>
           </div>
         )}
       </div>
@@ -368,6 +449,12 @@ export default function AssetsClientFilters({
             onToggle={(id) => toggleFilter("site", id, filterSites)}
           />
 
+          <AssigneeDropdown
+            contacts={contacts}
+            selected={filterContacts}
+            onToggle={(id) => toggleFilter("contact", id, filterContacts)}
+          />
+
           {/* Missing / gaps filter */}
           <MissingDropdown selected={missingFields} onToggle={(field) => {
             const next = new Set(missingFields);
@@ -376,7 +463,7 @@ export default function AssetsClientFilters({
           }} />
           {hasFilters && (
             <button
-              onClick={() => updateParams({ q: undefined, status: undefined, cat: undefined, dept: undefined, site: undefined, missing: undefined, page: undefined })}
+              onClick={() => updateParams({ q: undefined, status: undefined, cat: undefined, dept: undefined, site: undefined, contact: undefined, missing: undefined, page: undefined })}
               className="flex items-center gap-1 text-[12px] text-stone-400 hover:text-stone-700 px-2 py-1 rounded-md hover:bg-stone-100 transition-colors"
             >
               <X size={12} /> Clear
@@ -384,9 +471,41 @@ export default function AssetsClientFilters({
           )}
         </div>
 
-        <span className="text-[12px] text-stone-400">
-          {total === 0 ? "0" : `${start}–${end} of ${total}`}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] text-stone-400">
+            {total === 0 ? "0" : `${start}–${end} of ${total}`}
+          </span>
+          {hasFilters && total > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowAllStatus((v) => !v)}
+                disabled={allStatusLoading}
+                className="flex items-center gap-1 text-[11.5px] font-medium text-stone-500 border border-stone-200 bg-white px-2 py-1 rounded-lg hover:bg-stone-50 transition-colors disabled:opacity-50"
+              >
+                {allStatusLoading ? "Applying…" : `Change status for all ${total}`}
+                <ChevronDown size={10} className={`transition-transform duration-150 ${showAllStatus ? "rotate-180" : ""}`} />
+              </button>
+              {showAllStatus && (
+                <div className="absolute top-full mt-1.5 left-0 z-20 bg-white border border-stone-200 rounded-xl shadow-xl p-1.5 min-w-[180px]">
+                  <p className="px-3 pt-1 pb-1.5 text-[10.5px] font-medium text-stone-400 uppercase tracking-wider">Apply to all {total} results</p>
+                  {statuses.map((s) => {
+                    const cfg = getStatusConfig(s.name);
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => handleChangeAllStatus(s.id)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-stone-50 text-left transition-colors"
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                        <span className="text-[13px] text-stone-700">{s.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-2 ml-auto">
           <button
