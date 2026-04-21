@@ -418,6 +418,53 @@ export async function bulkChangeAssetStatus(
   return { success: true };
 }
 
+export async function bulkAssignAssets(
+  assetIds: string[],
+  contactId: string,
+): Promise<{ success?: boolean; error?: string }> {
+  if (assetIds.length === 0) return { success: true };
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError ?? "Auth error" };
+
+  const { data: inUseStatus } = await supabase.from("statuses").select("id").eq("name", "In Use").single();
+  if (!inUseStatus) return { error: "Could not find 'In Use' status." };
+
+  const now = new Date().toISOString();
+  const changedByName = user.user_metadata?.full_name ?? user.email ?? "Unknown";
+
+  await supabase.from("asset_assignments").update({ returned_at: now }).in("asset_id", assetIds).is("returned_at", null);
+
+  const { error: assignError } = await supabase.from("asset_assignments").insert(
+    assetIds.map((assetId) => ({ id: crypto.randomUUID(), asset_id: assetId, contact_id: contactId, assigned_at: now } as AssignmentInsert))
+  );
+  if (assignError) return { error: assignError.message };
+
+  const { error: updateError } = await supabase
+    .from("assets")
+    .update({ assigned_to_contact_id: contactId, status_id: inUseStatus.id, updated_at: now })
+    .in("id", assetIds);
+  if (updateError) return { error: updateError.message };
+
+  for (const assetId of assetIds) {
+    await supabase.from("asset_audit_log").insert({
+      id: crypto.randomUUID(), asset_id: assetId,
+      changed_by_user_id: user.id, changed_by_name: changedByName,
+      action: "update",
+      changes: { assigned_to_contact_id: { new: contactId } } as Json,
+    } as AuditInsert);
+  }
+
+  await logActivity({
+    userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null,
+    action: "assign_asset", entityType: "asset",
+    details: { asset_count: assetIds.length, contact_id: contactId },
+  });
+
+  revalidatePath("/assets");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 // ─── MAINTENANCE ────────────────────────────────────────────────────────────
 
 export async function createMaintenanceRecord(data: {

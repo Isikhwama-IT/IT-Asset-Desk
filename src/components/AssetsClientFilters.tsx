@@ -18,7 +18,7 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { AddAssetModal } from "@/components/AssetModals";
 import { useAuth } from "@/context/AuthContext";
-import { bulkChangeAssetStatus, getAllAssetsForExport } from "@/lib/actions";
+import { bulkChangeAssetStatus, bulkAssignAssets, getAllAssetsForExport } from "@/lib/actions";
 import type {
   AssetWithRelations,
   Status,
@@ -63,6 +63,8 @@ export default function AssetsClientFilters({
   // ── Bulk select ──────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBulkStatus, setShowBulkStatus] = useState(false);
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
+  const [bulkAssignSearch, setBulkAssignSearch] = useState("");
   const [bulkLoading, setBulkLoading] = useState(false);
 
   const allSelected = assets.length > 0 && assets.every((a) => selectedIds.has(a.id));
@@ -86,6 +88,16 @@ export default function AssetsClientFilters({
     setBulkLoading(true);
     setShowBulkStatus(false);
     await bulkChangeAssetStatus(Array.from(selectedIds), newStatusId);
+    setBulkLoading(false);
+    setSelectedIds(new Set());
+    router.refresh();
+  }
+
+  async function handleBulkAssign(contactId: string) {
+    setBulkLoading(true);
+    setShowBulkAssign(false);
+    setBulkAssignSearch("");
+    await bulkAssignAssets(Array.from(selectedIds), contactId);
     setBulkLoading(false);
     setSelectedIds(new Set());
     router.refresh();
@@ -459,7 +471,7 @@ export default function AssetsClientFilters({
           {/* Change Status */}
           <div className="relative">
             <button
-              onClick={() => setShowBulkStatus((v) => !v)}
+              onClick={() => { setShowBulkStatus((v) => !v); setShowBulkAssign(false); }}
               disabled={bulkLoading}
               className="flex items-center gap-1.5 text-[12.5px] font-medium text-stone-300 hover:text-white transition-colors disabled:opacity-50"
             >
@@ -480,6 +492,44 @@ export default function AssetsClientFilters({
                     </button>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* Assign To */}
+          <div className="relative">
+            <button
+              onClick={() => { setShowBulkAssign((v) => !v); setShowBulkStatus(false); }}
+              disabled={bulkLoading}
+              className="flex items-center gap-1.5 text-[12.5px] font-medium text-stone-300 hover:text-white transition-colors disabled:opacity-50"
+            >
+              Assign To <ChevronDown size={12} />
+            </button>
+            {showBulkAssign && (
+              <div className="absolute bottom-full mb-2 left-0 bg-white border border-stone-200 rounded-xl shadow-xl min-w-[220px]">
+                <div className="p-2 border-b border-stone-100">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={bulkAssignSearch}
+                    onChange={(e) => setBulkAssignSearch(e.target.value)}
+                    placeholder="Search contacts…"
+                    className="w-full text-[12.5px] text-stone-800 placeholder:text-stone-400 px-2 py-1.5 border border-stone-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-stone-300"
+                  />
+                </div>
+                <div className="max-h-52 overflow-y-auto p-1.5">
+                  {contacts
+                    .filter((c) => c.full_name.toLowerCase().includes(bulkAssignSearch.toLowerCase()))
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleBulkAssign(c.id)}
+                        className="w-full text-left px-3 py-2 rounded-lg hover:bg-stone-50 text-[13px] text-stone-700 transition-colors truncate"
+                      >
+                        {c.full_name}
+                      </button>
+                    ))}
+                </div>
               </div>
             )}
           </div>
