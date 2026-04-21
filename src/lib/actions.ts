@@ -866,6 +866,7 @@ export async function getAllAssetsForExport(filters: {
   cat?: string;
   dept?: string;
   site?: string;
+  contact?: string;
   missing?: string;
 }): Promise<{ data?: { code: string; description: string; category: string; serial: string; status: string; department: string; assignedTo: string; location: string; purchaseDate: string; }[]; error?: string }> {
   const supabase = await createSupabaseServerClient();
@@ -897,6 +898,10 @@ export async function getAllAssetsForExport(filters: {
   if (filters.site) {
     const ids = filters.site.split(",").filter(Boolean);
     if (ids.length > 0) query = query.in("location_id", ids);
+  }
+  if (filters.contact) {
+    const ids = filters.contact.split(",").filter(Boolean);
+    if (ids.length > 0) query = query.in("assigned_to_contact_id", ids);
   }
   if (filters.missing) {
     const fields = filters.missing.split(",").filter(Boolean);
