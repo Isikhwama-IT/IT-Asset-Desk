@@ -125,7 +125,8 @@ export default function AssetsClientFilters({
   const filterCategories = new Set(searchParams.get("cat")?.split(",").filter(Boolean) ?? []);
   const filterDepts = new Set(searchParams.get("dept")?.split(",").filter(Boolean) ?? []);
   const filterSites = new Set(searchParams.get("site")?.split(",").filter(Boolean) ?? []);
-  const hasFilters = q || filterStatuses.size > 0 || filterCategories.size > 0 || filterDepts.size > 0 || filterSites.size > 0;
+  const missingFields = new Set(searchParams.get("missing")?.split(",").filter(Boolean) ?? []);
+  const hasFilters = q || filterStatuses.size > 0 || filterCategories.size > 0 || filterDepts.size > 0 || filterSites.size > 0 || missingFields.size > 0;
 
   function toggleFilter(param: string, id: string, current: Set<string>) {
     const next = new Set(current);
@@ -185,6 +186,7 @@ export default function AssetsClientFilters({
       cat: filterCategories.size > 0 ? [...filterCategories].join(",") : undefined,
       dept: filterDepts.size > 0 ? [...filterDepts].join(",") : undefined,
       site: filterSites.size > 0 ? [...filterSites].join(",") : undefined,
+      missing: missingFields.size > 0 ? [...missingFields].join(",") : undefined,
     });
     setExporting(false);
     if (res.error || !res.data) return;
@@ -206,7 +208,6 @@ export default function AssetsClientFilters({
     selectedIds: Set<string>;
     onToggle: (id: string) => void;
     renderOption?: (opt: { id: string; name: string }) => React.ReactNode;
-    showNullOption?: boolean;
   }) {
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
@@ -254,20 +255,62 @@ export default function AssetsClientFilters({
                 )}
               </label>
             ))}
-            {showNullOption && (
-              <>
-                {options.length > 0 && <div className="my-1 border-t border-stone-100" />}
-                <label className="flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.has("__none__")}
-                    onChange={() => onToggle("__none__")}
-                    className="w-3.5 h-3.5 rounded border-stone-300 accent-stone-800 flex-shrink-0"
-                  />
-                  <span className="text-[13px] text-stone-400 italic">Unassigned</span>
-                </label>
-              </>
-            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const MISSING_OPTIONS = [
+    { key: "dept", label: "Department" },
+    { key: "site", label: "Site" },
+    { key: "contact", label: "Assigned To" },
+  ] as const;
+
+  function MissingDropdown({ selected, onToggle }: { selected: Set<string>; onToggle: (field: string) => void }) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+      function handler(e: MouseEvent) {
+        if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      }
+      document.addEventListener("mousedown", handler);
+      return () => document.removeEventListener("mousedown", handler);
+    }, []);
+    const count = selected.size;
+    return (
+      <div ref={ref} className="relative">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className={`flex items-center gap-1.5 text-[12.5px] border rounded-lg px-2.5 py-2 bg-white transition-colors focus:outline-none focus:ring-1 focus:ring-amber-300 ${
+            count > 0
+              ? "border-amber-400 text-amber-800 bg-amber-50"
+              : "border-stone-200 text-stone-500 hover:border-stone-300"
+          }`}
+        >
+          <span className={count > 0 ? "text-amber-600" : "text-stone-400"}>◌</span>
+          Missing
+          {count > 0 && (
+            <span className="bg-amber-600 text-white text-[10px] font-semibold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+              {count}
+            </span>
+          )}
+          <ChevronDown size={11} className={`transition-transform duration-150 ${count > 0 ? "text-amber-400" : "text-stone-400"} ${open ? "rotate-180" : ""}`} />
+        </button>
+        {open && (
+          <div className="absolute top-full mt-1.5 left-0 z-20 bg-white border border-stone-200 rounded-xl shadow-lg py-1.5 min-w-[170px]">
+            <p className="px-3 pt-1 pb-2 text-[10.5px] font-medium text-stone-400 uppercase tracking-wider">Show assets missing</p>
+            {MISSING_OPTIONS.map((opt) => (
+              <label key={opt.key} className="flex items-center gap-2.5 px-3 py-2 hover:bg-amber-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selected.has(opt.key)}
+                  onChange={() => onToggle(opt.key)}
+                  className="w-3.5 h-3.5 rounded border-stone-300 accent-amber-600 flex-shrink-0"
+                />
+                <span className="text-[13px] text-stone-700">{opt.label}</span>
+              </label>
+            ))}
           </div>
         )}
       </div>
@@ -318,18 +361,23 @@ export default function AssetsClientFilters({
             options={departments}
             selectedIds={filterDepts}
             onToggle={(id) => toggleFilter("dept", id, filterDepts)}
-            showNullOption
           />
           <FilterDropdown
             label="Site"
             options={locations}
             selectedIds={filterSites}
             onToggle={(id) => toggleFilter("site", id, filterSites)}
-            showNullOption
           />
+
+          {/* Missing / gaps filter */}
+          <MissingDropdown selected={missingFields} onToggle={(field) => {
+            const next = new Set(missingFields);
+            if (next.has(field)) next.delete(field); else next.add(field);
+            updateParams({ missing: next.size > 0 ? [...next].join(",") : undefined, page: undefined });
+          }} />
           {hasFilters && (
             <button
-              onClick={() => updateParams({ q: undefined, status: undefined, cat: undefined, dept: undefined, site: undefined, page: undefined })}
+              onClick={() => updateParams({ q: undefined, status: undefined, cat: undefined, dept: undefined, site: undefined, missing: undefined, page: undefined })}
               className="flex items-center gap-1 text-[12px] text-stone-400 hover:text-stone-700 px-2 py-1 rounded-md hover:bg-stone-100 transition-colors"
             >
               <X size={12} /> Clear

@@ -11,6 +11,7 @@ interface SearchParams {
   cat?: string;
   dept?: string;
   site?: string;
+  missing?: string;
 }
 
 async function getAssetsData(params: SearchParams) {
@@ -61,19 +62,17 @@ async function getAssetsData(params: SearchParams) {
   }
   if (params.dept) {
     const ids = params.dept.split(",").filter(Boolean);
-    const hasNull = ids.includes("__none__");
-    const realIds = ids.filter((id) => id !== "__none__");
-    if (hasNull && realIds.length === 0) query = query.is("owning_department_id", null);
-    else if (hasNull) query = query.or(`owning_department_id.is.null,owning_department_id.in.(${realIds.join(",")})`);
-    else if (realIds.length > 0) query = query.in("owning_department_id", realIds);
+    if (ids.length > 0) query = query.in("owning_department_id", ids);
   }
   if (params.site) {
     const ids = params.site.split(",").filter(Boolean);
-    const hasNull = ids.includes("__none__");
-    const realIds = ids.filter((id) => id !== "__none__");
-    if (hasNull && realIds.length === 0) query = query.is("location_id", null);
-    else if (hasNull) query = query.or(`location_id.is.null,location_id.in.(${realIds.join(",")})`);
-    else if (realIds.length > 0) query = query.in("location_id", realIds);
+    if (ids.length > 0) query = query.in("location_id", ids);
+  }
+  if (params.missing) {
+    const fields = params.missing.split(",").filter(Boolean);
+    if (fields.includes("dept")) query = query.is("owning_department_id", null);
+    if (fields.includes("site")) query = query.is("location_id", null);
+    if (fields.includes("contact")) query = query.is("assigned_to_contact_id", null);
   }
 
   const { data: assets, count } = await query
