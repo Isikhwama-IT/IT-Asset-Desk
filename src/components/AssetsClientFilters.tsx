@@ -201,7 +201,6 @@ export default function AssetsClientFilters({
     selectedIds,
     onToggle,
     renderOption,
-    showNullOption,
   }: {
     label: string;
     options: { id: string; name: string }[];
