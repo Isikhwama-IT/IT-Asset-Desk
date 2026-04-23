@@ -7,7 +7,7 @@ import {
   ModalFooter, BtnPrimary, BtnSecondary, BtnDanger, ErrorBanner, FormGrid, FormStack, ConfirmInline,
 } from "@/components/modal-ui";
 import { createContact, updateContact, setContactActive, deleteContact } from "@/lib/actions";
-import type { Contact, Department, JobLevel } from "@/types/database";
+import type { Contact, Department, JobLevel, Location } from "@/types/database";
 
 type ContactWithRelations = Contact & {
   department: Department | null;
@@ -17,6 +17,7 @@ type ContactWithRelations = Contact & {
 interface LookupProps {
   departments: Department[];
   jobLevels: JobLevel[];
+  locations: Location[];
 }
 
 // ─── ADD CONTACT ──────────────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ export function AddContactModal({
     email: "",
     department_id: "",
     job_level_id: "",
+    location_id: "",
   });
   const set = (k: string, v: string) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -100,6 +102,15 @@ export function AddContactModal({
           </FormField>
         </FormGrid>
 
+        <FormField label="Site">
+          <Select value={form.location_id} onChange={(e) => set("location_id", e.target.value)}>
+            <option value="">No site</option>
+            {lookups.locations.map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </Select>
+        </FormField>
+
         <ModalFooter>
           <BtnSecondary onClick={onClose}>Cancel</BtnSecondary>
           <ConfirmInline
@@ -145,6 +156,7 @@ export function EditContactModal({
     email: contact.email ?? "",
     department_id: contact.department_id ?? "",
     job_level_id: contact.job_level_id ?? "",
+    location_id: contact.location_id ?? "",
   });
   const set = (k: string, v: string) => {
     setForm((f) => ({ ...f, [k]: v }));
@@ -221,6 +233,15 @@ export function EditContactModal({
             </Select>
           </FormField>
         </FormGrid>
+
+        <FormField label="Site">
+          <Select value={form.location_id} onChange={(e) => set("location_id", e.target.value)}>
+            <option value="">No site</option>
+            {lookups.locations.map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </Select>
+        </FormField>
 
         <ModalFooter>
           {/* Left side: Deactivate + Delete */}

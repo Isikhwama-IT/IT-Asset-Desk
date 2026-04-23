@@ -8,11 +8,12 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { AddContactModal, EditContactModal } from "@/components/ContactModals";
 import { useAuth } from "@/context/AuthContext";
-import type { Contact, Department, JobLevel, AssetWithRelations } from "@/types/database";
+import type { Contact, Department, JobLevel, Location, AssetWithRelations } from "@/types/database";
 
 type ContactWithRelations = Contact & {
   department: Department | null;
   job_level: JobLevel | null;
+  location: Location | null;
 };
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
   assetsByContact: Record<string, AssetWithRelations[]>;
   departments: Department[];
   jobLevels: JobLevel[];
+  locations: Location[];
 }
 
 function getInitials(name: string) {
@@ -76,6 +78,7 @@ function ContactCard({
             <p className="text-[11.5px] text-stone-400 mt-0.5">
               {contact.department?.name ?? "No department"}
               {contact.job_level && ` · ${contact.job_level.name}`}
+              {contact.location && ` · ${contact.location.name}`}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -224,7 +227,7 @@ function WhoHasWhat({
   );
 }
 
-export default function PeopleClientView({ contacts, assetsByContact, departments, jobLevels }: Props) {
+export default function PeopleClientView({ contacts, assetsByContact, departments, jobLevels, locations }: Props) {
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState("");
   const [filterDept, setFilterDept] = useState("");
@@ -369,14 +372,14 @@ export default function PeopleClientView({ contacts, assetsByContact, department
       {showAdd && (
         <AddContactModal
           onClose={() => setShowAdd(false)}
-          lookups={{ departments, jobLevels }}
+          lookups={{ departments, jobLevels, locations }}
         />
       )}
       {editContact && (
         <EditContactModal
           contact={editContact}
           onClose={() => setEditContact(null)}
-          lookups={{ departments, jobLevels }}
+          lookups={{ departments, jobLevels, locations }}
         />
       )}
     </>

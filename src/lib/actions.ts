@@ -586,6 +586,7 @@ export async function createContact(data: {
   email?: string;
   department_id?: string;
   job_level_id?: string;
+  location_id?: string;
 }) {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();
   if (authError || !supabase || !user) return { error: authError };
@@ -613,6 +614,7 @@ export async function updateContact(
     email?: string;
     department_id?: string;
     job_level_id?: string;
+    location_id?: string;
   }
 ) {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();

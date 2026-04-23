@@ -96,6 +96,7 @@ export interface Database {
           email: string | null;
           department_id: string | null;
           job_level_id: string | null;
+          location_id: string | null;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -106,6 +107,7 @@ export interface Database {
           email?: string | null;
           department_id?: string | null;
           job_level_id?: string | null;
+          location_id?: string | null;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -116,6 +118,7 @@ export interface Database {
           email?: string | null;
           department_id?: string | null;
           job_level_id?: string | null;
+          location_id?: string | null;
           is_active?: boolean;
           updated_at?: string;
         };
