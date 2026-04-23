@@ -33,8 +33,9 @@ export async function updateSession(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname.startsWith("/login");
   const isStaticAsset = request.nextUrl.pathname.startsWith("/_next");
   const isPublicPage = request.nextUrl.pathname === "/request";
+  const isKovaApi = request.nextUrl.pathname.startsWith("/api/kova/");
 
-  if (!user && !isLoginPage && !isStaticAsset && !isPublicPage) {
+  if (!user && !isLoginPage && !isStaticAsset && !isPublicPage && !isKovaApi) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
