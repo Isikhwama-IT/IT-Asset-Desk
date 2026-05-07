@@ -11,6 +11,12 @@ import {
   createAsset, updateAsset, changeAssetStatus,
   assignAsset, unassignAsset,
 } from "@/lib/actions";
+import {
+  STORAGE_SAFE_OPTIONS,
+  STORAGE_SAFE_SITES,
+  storageSafeMatchesContact,
+  type StorageSafeSite,
+} from "@/lib/storage-safes";
 import { getStatusConfig } from "@/lib/utils";
 import type {
   AssetWithRelations, Category, Status, Department,
@@ -540,10 +546,22 @@ export function AssignAssetModal({
   const [notes, setNotes] = useState("");
   const [assignedAt, setAssignedAt] = useState(new Date().toISOString().split("T")[0]);
   const [storageStep, setStorageStep] = useState(false);
-  const [storageLocationId, setStorageLocationId] = useState("");
+  const [storageSite, setStorageSite] = useState<"" | StorageSafeSite>("");
+  const [rainbowSafeId, setRainbowSafeId] = useState("");
   const [confirmingAssign, setConfirmingAssign] = useState(false);
 
   const isCurrentlyAssigned = !!asset.assigned_to_contact_id;
+  const bakerStreetSafe = STORAGE_SAFE_OPTIONS.find((option) => option.id === "baker-street");
+  const rainbowParkSafes = STORAGE_SAFE_OPTIONS.filter((option) => option.site === "rainbow-park");
+  const selectedStorageSafe =
+    storageSite === "baker-street"
+      ? bakerStreetSafe
+      : storageSite === "rainbow-park"
+        ? rainbowParkSafes.find((option) => option.id === rainbowSafeId)
+        : undefined;
+  const selectedStorageContact = selectedStorageSafe
+    ? contacts.find((contact) => storageSafeMatchesContact(selectedStorageSafe, contact.full_name))
+    : undefined;
 
   async function handleAssign() {
     if (!contactId) return setError("Please select a person to assign to.");
@@ -568,9 +586,17 @@ export function AssignAssetModal({
   }
 
   async function handleSendToStorage() {
+    if (!storageSite) return setError("Please select a storage site.");
+    if (storageSite === "rainbow-park" && !rainbowSafeId) {
+      return setError("Please select which Rainbow Park safe to use.");
+    }
+    if (!selectedStorageSafe || !selectedStorageContact) {
+      return setError(`${selectedStorageSafe?.contactName ?? "Storage safe"} was not found in active contacts.`);
+    }
+
     setLoading(true);
     setError("");
-    const res = await unassignAsset(asset.id, inStorageStatusId, asset.status_id, storageLocationId || undefined);
+    const res = await unassignAsset(asset.id, inStorageStatusId, asset.status_id, selectedStorageContact.id);
     setLoading(false);
     if (res?.error) return setError(res.error);
     router.refresh();
@@ -601,13 +627,57 @@ export function AssignAssetModal({
             </div>
             {storageStep && (
               <div className="space-y-2 pt-1 border-t border-sky-200">
-                <p className="text-[12px] font-medium text-sky-800">Which site is this asset at?</p>
-                <Select value={storageLocationId} onChange={(e) => setStorageLocationId(e.target.value)}>
-                  <option value="">Select site…</option>
-                  {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-                </Select>
+                <FormField label="Storage Site" required>
+                  <Select
+                    value={storageSite}
+                    onChange={(e) => {
+                      setStorageSite(e.target.value as "" | StorageSafeSite);
+                      setRainbowSafeId("");
+                      setError("");
+                    }}
+                    error={!!error && !storageSite}
+                  >
+                    <option value="">Select site...</option>
+                    {STORAGE_SAFE_SITES.map((site) => (
+                      <option key={site.id} value={site.id}>{site.label}</option>
+                    ))}
+                  </Select>
+                </FormField>
+
+                {storageSite === "rainbow-park" && (
+                  <FormField label="Rainbow Park Safe" required>
+                    <Select
+                      value={rainbowSafeId}
+                      onChange={(e) => {
+                        setRainbowSafeId(e.target.value);
+                        setError("");
+                      }}
+                      error={!!error && !rainbowSafeId}
+                    >
+                      <option value="">Select safe...</option>
+                      {rainbowParkSafes.map((safe) => (
+                        <option key={safe.id} value={safe.id}>{safe.label}</option>
+                      ))}
+                    </Select>
+                  </FormField>
+                )}
+
+                {selectedStorageSafe && !selectedStorageContact && (
+                  <p className="text-[12px] text-red-600">
+                    {selectedStorageSafe.contactName} is missing from active contacts.
+                  </p>
+                )}
                 <div className="flex gap-2 pt-1">
-                  <BtnSecondary onClick={() => setStorageStep(false)}>Cancel</BtnSecondary>
+                  <BtnSecondary
+                    onClick={() => {
+                      setStorageStep(false);
+                      setStorageSite("");
+                      setRainbowSafeId("");
+                      setError("");
+                    }}
+                  >
+                    Cancel
+                  </BtnSecondary>
                   <BtnPrimary onClick={handleSendToStorage} loading={loading}>Confirm</BtnPrimary>
                 </div>
               </div>

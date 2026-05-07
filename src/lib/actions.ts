@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import type { Database, Json } from "@/types/database";
 import { createSupabaseServerClient } from "./supabase-server";
 import { logActivity } from "./activity";
+import { isStorageSafeContactName } from "./storage-safes";
 
 type AssetInsert = Database["public"]["Tables"]["assets"]["Insert"];
 type AuditInsert = Database["public"]["Tables"]["asset_audit_log"]["Insert"];
@@ -287,17 +288,26 @@ export async function unassignAsset(
   assetId: string,
   inStorageStatusId: string,
   currentStatusId: string,
-  locationId?: string,
+  storageContactId: string,
 ) {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();
   if (authError || !supabase || !user) return { error: authError };
+  if (!storageContactId) return { error: "Please select a storage safe." };
 
-  // Look up the "Safe" contact who acts as the permanent storage custodian
-  const { data: safeContact } = await supabase
+  const { data: storageContact, error: storageContactError } = await supabase
     .from("contacts")
-    .select("id, department_id, job_level_id")
-    .ilike("full_name", "safe")
+    .select("id, full_name, department_id, job_level_id, location_id")
+    .eq("id", storageContactId)
+    .eq("is_active", true)
     .single();
+
+  if (storageContactError || !storageContact) {
+    return { error: "Selected storage safe could not be found." };
+  }
+
+  if (!isStorageSafeContactName(storageContact.full_name)) {
+    return { error: "Selected contact is not a storage safe." };
+  }
 
   await supabase
     .from("asset_assignments")
@@ -305,26 +315,25 @@ export async function unassignAsset(
     .eq("asset_id", assetId)
     .is("returned_at", null);
 
-  // Assign to the Safe custodian
-  if (safeContact) {
-    await supabase.from("asset_assignments").insert({
-      id: crypto.randomUUID(),
-      asset_id: assetId,
-      contact_id: safeContact.id,
-      location_id: locationId || null,
-      notes: "In storage",
-      assigned_at: new Date().toISOString().split("T")[0],
-    } as AssignmentInsert);
-  }
+  const storageLocationId = storageContact.location_id ?? null;
+
+  await supabase.from("asset_assignments").insert({
+    id: crypto.randomUUID(),
+    asset_id: assetId,
+    contact_id: storageContact.id,
+    location_id: storageLocationId,
+    notes: "In storage",
+    assigned_at: new Date().toISOString().split("T")[0],
+  } as AssignmentInsert);
 
   await supabase
     .from("assets")
     .update({
-      assigned_to_contact_id: safeContact?.id ?? null,
-      owning_department_id: safeContact?.department_id ?? null,
-      assigned_job_level_id: safeContact?.job_level_id ?? null,
+      assigned_to_contact_id: storageContact.id,
+      owning_department_id: storageContact.department_id ?? null,
+      assigned_job_level_id: storageContact.job_level_id ?? null,
       status_id: inStorageStatusId,
-      ...(locationId ? { location_id: locationId } : {}),
+      location_id: storageLocationId,
       updated_at: new Date().toISOString(),
     })
     .eq("id", assetId);
@@ -346,12 +355,13 @@ export async function unassignAsset(
     changed_by_user_id: user.id,
     changed_by_name: user.user_metadata?.full_name ?? user.email ?? "Unknown",
     action: "update",
-    changes: { assigned_to_contact_id: { old: "assigned", new: null } } as Json,
+    changes: { assigned_to_contact_id: { old: "assigned", new: storageContact.id } } as Json,
   } as AuditInsert);
 
   await logActivity({
     userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null,
     action: "unassign_asset", entityType: "asset", entityId: assetId,
+    details: { storage_contact_id: storageContact.id },
   });
 
   revalidatePath("/assets");
