@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, XCircle, AlertTriangle, X } from "lucide-react";
@@ -70,6 +70,11 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const dismiss = useCallback((id: string) => {
     setToasts((t) => t.filter((x) => x.id !== id));
@@ -94,7 +99,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {typeof window !== "undefined" && createPortal(
+      {mounted && typeof window !== "undefined" && createPortal(
         <div className="fixed bottom-6 right-6 z-[99999] flex flex-col gap-2 items-end">
           <AnimatePresence mode="popLayout">
             {toasts.map((t) => (

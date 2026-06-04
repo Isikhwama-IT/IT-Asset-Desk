@@ -47,7 +47,8 @@ vi.mock("@/lib/supabase-server", () => ({
           user: {
             id: "user-123",
             email: "admin@test.com",
-            user_metadata: { role: "admin", full_name: "Admin User" },
+            app_metadata: { role: "admin" },
+            user_metadata: { full_name: "Admin User" },
           },
         },
       }),

@@ -2,7 +2,20 @@
   "permissions": {
     "allow": [
       "Bash(npm install:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(curl -s -H \"x-api-key: 1ce1be776fa21b1f7ede949a6770545680030e213e9368b1cc839fca306599cd\" \"https://it-asset-desk.vercel.app/api/kova/contacts?q=ad\")",
+      "Bash(curl -sI -H \"x-api-key: 1ce1be776fa21b1f7ede949a6770545680030e213e9368b1cc839fca306599cd\" \"https://it-asset-desk.vercel.app/api/kova/contacts?q=ad\")",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s -H 'x-api-key: 1ce1be776fa21b1f7ede949a6770545680030e213e9368b1cc839fca306599cd' 'https://it-asset-desk.vercel.app/api/kova/assets?q=dell')",
+      "Bash(curl -s -H 'x-api-key: 1ce1be776fa21b1f7ede949a6770545680030e213e9368b1cc839fca306599cd' https://it-asset-desk.vercel.app/api/kova/contacts/205170a3-75c8-4e8f-943d-5180155dc852)",
+      "Bash(curl -s -H 'x-api-key: 1ce1be776fa21b1f7ede949a6770545680030e213e9368b1cc839fca306599cd' 'https://it-asset-desk.vercel.app/api/kova/assets?q=laptop')"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\IT\\OneDrive - Isikhwama Manufacturing (Pty) Ltd\\Development Hub\\Projects\\itasset\\src\\app\\api\\kova\\contacts",
+      "c:\\Users\\IT\\OneDrive - Isikhwama Manufacturing (Pty) Ltd\\Development Hub\\Projects\\itasset\\src\\app\\api\\kova\\assets"
     ]
   }
 }

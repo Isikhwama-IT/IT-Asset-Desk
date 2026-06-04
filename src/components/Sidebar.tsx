@@ -15,6 +15,8 @@ import {
   Settings,
   Inbox,
   ClipboardList,
+  Printer,
+  ListTodo,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -24,7 +26,9 @@ import { signOut } from "@/app/login/actions";
 const nav = [
   { href: "/dashboard", label: "Dashboard",  icon: LayoutDashboard, adminOnly: false },
   { href: "/assets",    label: "Assets",      icon: Monitor,         adminOnly: false },
-  { href: "/people",    label: "People",       icon: Users,           adminOnly: false },
+  { href: "/printers",  label: "Printers",    icon: Printer,         adminOnly: false },
+  { href: "/tasks",     label: "Tasks",        icon: ListTodo,        adminOnly: false },
+  { href: "/people",    label: "Contacts",     icon: Users,           adminOnly: false },
   { href: "/requests",  label: "Requests",     icon: Inbox,           adminOnly: true  },
   { href: "/audit",     label: "Audit Log",    icon: ClipboardList,   adminOnly: true  },
   { href: "/settings",  label: "Settings",     icon: Settings,        adminOnly: true  },

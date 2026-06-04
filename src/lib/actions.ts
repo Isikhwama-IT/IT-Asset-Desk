@@ -12,6 +12,12 @@ type AssignmentInsert = Database["public"]["Tables"]["asset_assignments"]["Inser
 type StatusHistoryInsert = Database["public"]["Tables"]["asset_status_history"]["Insert"];
 type MaintenanceInsert = Database["public"]["Tables"]["maintenance_records"]["Insert"];
 type ContactInsert = Database["public"]["Tables"]["contacts"]["Insert"];
+type ExternalContactInsert = Database["public"]["Tables"]["external_contacts"]["Insert"];
+type PrinterInsert = Database["public"]["Tables"]["printers"]["Insert"];
+type PrinterTonerOrderInsert = Database["public"]["Tables"]["printer_toner_orders"]["Insert"];
+type PrinterPaperOrderInsert = Database["public"]["Tables"]["printer_paper_orders"]["Insert"];
+type PrinterTicketInsert = Database["public"]["Tables"]["printer_tickets"]["Insert"];
+type PrinterMeterReadingInsert = Database["public"]["Tables"]["printer_meter_readings"]["Insert"];
 
 async function getAuthenticatedAdmin() {
   const supabase = await createSupabaseServerClient();
@@ -19,9 +25,46 @@ async function getAuthenticatedAdmin() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated.", supabase: null, user: null };
-  if (user.user_metadata?.role !== "admin")
+  if (user.app_metadata?.role !== "admin")
     return { error: "Admin access required.", supabase: null, user: null };
   return { error: null, supabase, user };
+}
+
+function cleanEmptyStrings<T extends Record<string, unknown>>(data: T) {
+  return Object.fromEntries(
+    Object.entries(data).map(([k, v]) => [k, v === "" ? null : v])
+  );
+}
+
+async function syncPrinterStatusFromTickets(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  printerId: string
+) {
+  const { data: printer } = await supabase
+    .from("printers")
+    .select("status")
+    .eq("id", printerId)
+    .single();
+
+  if (!printer || printer.status === "Retired") return;
+
+  const { count } = await supabase
+    .from("printer_tickets")
+    .select("id", { count: "exact", head: true })
+    .eq("printer_id", printerId)
+    .in("status", ["Open", "In Progress", "Waiting Supplier"]);
+
+  if ((count ?? 0) > 0 && printer.status !== "Offline") {
+    await supabase
+      .from("printers")
+      .update({ status: "Needs Attention", updated_at: new Date().toISOString() })
+      .eq("id", printerId);
+  } else if (printer.status === "Needs Attention") {
+    await supabase
+      .from("printers")
+      .update({ status: "Active", updated_at: new Date().toISOString() })
+      .eq("id", printerId);
+  }
 }
 
 // ─── ASSETS ────────────────────────────────────────────────────────────────
@@ -589,7 +632,512 @@ export async function updateMaintenanceRecord(
   return { success: true };
 }
 
-// ─── CONTACTS ───────────────────────────────────────────────────────────────
+// --- PRINTERS --------------------------------------------------------------
+
+export async function createPrinter(data: {
+  name: string;
+  serial_number?: string;
+  ip_address?: string;
+  mac_address?: string;
+  supplier?: string;
+  manufacturer?: string;
+  model?: string;
+  department_id?: string;
+  location_id?: string;
+  primary_contact_id?: string;
+  status?: string;
+  toner_status?: string;
+  paper_status?: string;
+  toner_model?: string;
+  paper_size?: string;
+  last_meter_reading?: number | null;
+  last_meter_reading_at?: string;
+  warranty_end_date?: string;
+  notes?: string;
+}) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+
+  if (!data.name.trim()) return { error: "Printer name is required." };
+
+  const clean = cleanEmptyStrings({
+    ...data,
+    status: data.status || "Active",
+    toner_status: data.toner_status || "OK",
+    paper_status: data.paper_status || "OK",
+  });
+
+  const { data: printer, error } = await supabase
+    .from("printers")
+    .insert({
+      id: crypto.randomUUID(),
+      ...clean,
+    } as PrinterInsert)
+    .select("id, printer_code, name")
+    .single();
+
+  if (error) return { error: error.message };
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "create_printer",
+    entityType: "printer",
+    entityId: printer.id,
+    entityLabel: `#${printer.printer_code} ${printer.name}`,
+  });
+
+  revalidatePath("/printers");
+  revalidatePath("/dashboard");
+  return { success: true, id: printer.id };
+}
+
+export async function updatePrinter(
+  id: string,
+  data: {
+    name?: string;
+    serial_number?: string;
+    ip_address?: string;
+    mac_address?: string;
+    supplier?: string;
+    manufacturer?: string;
+    model?: string;
+    department_id?: string;
+    location_id?: string;
+    primary_contact_id?: string;
+    status?: string;
+    toner_status?: string;
+    paper_status?: string;
+    toner_model?: string;
+    paper_size?: string;
+    last_meter_reading?: number | null;
+    last_meter_reading_at?: string;
+    warranty_end_date?: string;
+    notes?: string;
+  }
+) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+
+  if (data.name !== undefined && !data.name.trim()) {
+    return { error: "Printer name is required." };
+  }
+
+  const clean = cleanEmptyStrings(data);
+  const { data: existing } = await supabase
+    .from("printers")
+    .select("name")
+    .eq("id", id)
+    .single();
+
+  const { error } = await supabase
+    .from("printers")
+    .update({ ...clean, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "update_printer",
+    entityType: "printer",
+    entityId: id,
+    entityLabel: data.name ?? existing?.name ?? id,
+  });
+
+  revalidatePath("/printers");
+  revalidatePath(`/printers/${id}`);
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function deletePrinter(id: string): Promise<{ success?: boolean; error?: string }> {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError ?? "Auth error" };
+
+  const { data: printer } = await supabase
+    .from("printers")
+    .select("name")
+    .eq("id", id)
+    .single();
+
+  const { error } = await supabase.from("printers").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "delete_printer",
+    entityType: "printer",
+    entityId: id,
+    entityLabel: printer?.name ?? id,
+  });
+
+  revalidatePath("/printers");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function createPrinterTonerOrder(data: {
+  printer_id: string;
+  requested_by_contact_id?: string;
+  toner_type: string;
+  quantity?: number;
+  status?: string;
+  supplier?: string;
+  order_number?: string;
+  requested_at?: string;
+  expected_at?: string;
+  received_at?: string;
+  notes?: string;
+}) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+  if (!data.toner_type.trim()) return { error: "Toner type is required." };
+
+  const status = data.status || "Requested";
+  const clean = cleanEmptyStrings({ ...data, status, quantity: data.quantity ?? 1 });
+
+  const { error } = await supabase.from("printer_toner_orders").insert({
+    id: crypto.randomUUID(),
+    ...clean,
+  } as PrinterTonerOrderInsert);
+  if (error) return { error: error.message };
+
+  if (["Requested", "Ordered", "Backordered"].includes(status)) {
+    await supabase
+      .from("printers")
+      .update({ toner_status: "Ordered", updated_at: new Date().toISOString() })
+      .eq("id", data.printer_id);
+  } else if (status === "Received") {
+    await supabase
+      .from("printers")
+      .update({ toner_status: "OK", updated_at: new Date().toISOString() })
+      .eq("id", data.printer_id);
+  }
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "create_printer_toner_order",
+    entityType: "printer",
+    entityId: data.printer_id,
+    entityLabel: data.toner_type,
+  });
+
+  revalidatePath("/printers");
+  revalidatePath(`/printers/${data.printer_id}`);
+  return { success: true };
+}
+
+export async function updatePrinterTonerOrder(
+  id: string,
+  printerId: string,
+  data: {
+    toner_type?: string;
+    quantity?: number;
+    status?: string;
+    supplier?: string;
+    order_number?: string;
+    requested_by_contact_id?: string;
+    requested_at?: string;
+    expected_at?: string;
+    received_at?: string;
+    notes?: string;
+  }
+) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+
+  const clean = cleanEmptyStrings(data);
+  const { error } = await supabase
+    .from("printer_toner_orders")
+    .update({ ...clean, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  if (data.status === "Received") {
+    await supabase
+      .from("printers")
+      .update({ toner_status: "OK", updated_at: new Date().toISOString() })
+      .eq("id", printerId);
+  } else if (data.status && ["Requested", "Ordered", "Backordered"].includes(data.status)) {
+    await supabase
+      .from("printers")
+      .update({ toner_status: "Ordered", updated_at: new Date().toISOString() })
+      .eq("id", printerId);
+  }
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "update_printer_toner_order",
+    entityType: "printer",
+    entityId: printerId,
+  });
+
+  revalidatePath("/printers");
+  revalidatePath(`/printers/${printerId}`);
+  return { success: true };
+}
+
+export async function createPrinterPaperOrder(data: {
+  printer_id: string;
+  requested_by_contact_id?: string;
+  paper_size: string;
+  reams?: number;
+  status?: string;
+  supplier?: string;
+  order_number?: string;
+  requested_at?: string;
+  expected_at?: string;
+  received_at?: string;
+  notes?: string;
+}) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+  if (!data.paper_size.trim()) return { error: "Paper size is required." };
+
+  const status = data.status || "Requested";
+  const clean = cleanEmptyStrings({ ...data, status, reams: data.reams ?? 1 });
+
+  const { error } = await supabase.from("printer_paper_orders").insert({
+    id: crypto.randomUUID(),
+    ...clean,
+  } as PrinterPaperOrderInsert);
+  if (error) return { error: error.message };
+
+  if (["Requested", "Ordered", "Backordered"].includes(status)) {
+    await supabase
+      .from("printers")
+      .update({ paper_status: "Ordered", updated_at: new Date().toISOString() })
+      .eq("id", data.printer_id);
+  } else if (status === "Received") {
+    await supabase
+      .from("printers")
+      .update({ paper_status: "OK", updated_at: new Date().toISOString() })
+      .eq("id", data.printer_id);
+  }
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "create_printer_paper_order",
+    entityType: "printer",
+    entityId: data.printer_id,
+    entityLabel: data.paper_size,
+  });
+
+  revalidatePath("/printers");
+  revalidatePath(`/printers/${data.printer_id}`);
+  return { success: true };
+}
+
+export async function updatePrinterPaperOrder(
+  id: string,
+  printerId: string,
+  data: {
+    paper_size?: string;
+    reams?: number;
+    status?: string;
+    supplier?: string;
+    order_number?: string;
+    requested_by_contact_id?: string;
+    requested_at?: string;
+    expected_at?: string;
+    received_at?: string;
+    notes?: string;
+  }
+) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+
+  const clean = cleanEmptyStrings(data);
+  const { error } = await supabase
+    .from("printer_paper_orders")
+    .update({ ...clean, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  if (data.status === "Received") {
+    await supabase
+      .from("printers")
+      .update({ paper_status: "OK", updated_at: new Date().toISOString() })
+      .eq("id", printerId);
+  } else if (data.status && ["Requested", "Ordered", "Backordered"].includes(data.status)) {
+    await supabase
+      .from("printers")
+      .update({ paper_status: "Ordered", updated_at: new Date().toISOString() })
+      .eq("id", printerId);
+  }
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "update_printer_paper_order",
+    entityType: "printer",
+    entityId: printerId,
+  });
+
+  revalidatePath("/printers");
+  revalidatePath(`/printers/${printerId}`);
+  return { success: true };
+}
+
+export async function createPrinterTicket(data: {
+  printer_id: string;
+  logged_by_contact_id?: string;
+  title: string;
+  description?: string;
+  priority?: string;
+  status?: string;
+  supplier_ticket_ref?: string;
+  opened_at?: string;
+  due_at?: string;
+  closed_at?: string;
+  resolution_notes?: string;
+  cost?: number | null;
+}) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+  if (!data.title.trim()) return { error: "Ticket title is required." };
+
+  const clean = cleanEmptyStrings({
+    ...data,
+    priority: data.priority || "Normal",
+    status: data.status || "Open",
+  });
+
+  const { error } = await supabase.from("printer_tickets").insert({
+    id: crypto.randomUUID(),
+    ...clean,
+  } as PrinterTicketInsert);
+  if (error) return { error: error.message };
+
+  await syncPrinterStatusFromTickets(supabase, data.printer_id);
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "create_printer_ticket",
+    entityType: "printer",
+    entityId: data.printer_id,
+    entityLabel: data.title,
+  });
+
+  revalidatePath("/printers");
+  revalidatePath(`/printers/${data.printer_id}`);
+  return { success: true };
+}
+
+export async function updatePrinterTicket(
+  id: string,
+  printerId: string,
+  data: {
+    title?: string;
+    description?: string;
+    priority?: string;
+    status?: string;
+    logged_by_contact_id?: string;
+    supplier_ticket_ref?: string;
+    opened_at?: string;
+    due_at?: string;
+    closed_at?: string;
+    resolution_notes?: string;
+    cost?: number | null;
+  }
+) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+
+  const clean = cleanEmptyStrings(data);
+  const { error } = await supabase
+    .from("printer_tickets")
+    .update({ ...clean, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  await syncPrinterStatusFromTickets(supabase, printerId);
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "update_printer_ticket",
+    entityType: "printer",
+    entityId: printerId,
+    entityLabel: data.title ?? undefined,
+  });
+
+  revalidatePath("/printers");
+  revalidatePath(`/printers/${printerId}`);
+  return { success: true };
+}
+
+export async function createPrinterMeterReading(data: {
+  printer_id: string;
+  reading: number;
+  reading_at?: string;
+  captured_by_contact_id?: string;
+  notes?: string;
+}) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+  if (!Number.isFinite(data.reading) || data.reading < 0) {
+    return { error: "Meter reading must be zero or higher." };
+  }
+
+  const readingAt = data.reading_at || new Date().toISOString().split("T")[0];
+  const clean = cleanEmptyStrings({ ...data, reading_at: readingAt });
+
+  const { error } = await supabase.from("printer_meter_readings").insert({
+    id: crypto.randomUUID(),
+    ...clean,
+  } as PrinterMeterReadingInsert);
+  if (error) return { error: error.message };
+
+  const { data: printer } = await supabase
+    .from("printers")
+    .select("last_meter_reading_at")
+    .eq("id", data.printer_id)
+    .single();
+
+  if (!printer?.last_meter_reading_at || readingAt >= printer.last_meter_reading_at) {
+    await supabase
+      .from("printers")
+      .update({
+        last_meter_reading: data.reading,
+        last_meter_reading_at: readingAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", data.printer_id);
+  }
+
+  await logActivity({
+    userId: user.id,
+    userName: user.user_metadata?.full_name ?? null,
+    userEmail: user.email ?? null,
+    action: "create_printer_meter_reading",
+    entityType: "printer",
+    entityId: data.printer_id,
+    details: { reading: data.reading, reading_at: readingAt },
+  });
+
+  revalidatePath("/printers");
+  revalidatePath(`/printers/${data.printer_id}`);
+  return { success: true };
+}
+
+// --- CONTACTS --------------------------------------------------------------
 
 export async function createContact(data: {
   full_name: string;
@@ -660,6 +1208,48 @@ export async function setContactActive(id: string, isActive: boolean) {
     userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null,
     action: isActive ? "activate_contact" : "deactivate_contact", entityType: "contact", entityId: id,
   });
+  revalidatePath("/people");
+  return { success: true };
+}
+
+// ─── EXTERNAL CONTACTS ─────────────────────────────────────────────────────
+
+export async function createExternalContact(data: { name: string; company?: string; email?: string; phone?: string }) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+  if (!data.name || !data.name.trim()) return { error: "Name is required." };
+  const clean = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v === "" ? null : v]));
+  const id = crypto.randomUUID();
+  const { error } = await supabase.from("external_contacts").insert({ id, ...clean } as ExternalContactInsert);
+  if (error) return { error: error.message };
+  await logActivity({ userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null, action: "create_external_contact", entityType: "external_contact", entityId: id, entityLabel: data.name });
+  revalidatePath("/tasks");
+  revalidatePath("/people");
+  return { success: true };
+}
+
+export async function updateExternalContact(id: string, data: { name?: string; company?: string; email?: string; phone?: string }) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+  const clean = Object.fromEntries(Object.entries(data).map(([k, v]) => [k, v === "" ? null : v]));
+  const { error } = await supabase.from("external_contacts").update({ ...clean, updated_at: new Date().toISOString() } as never).eq("id", id);
+  if (error) return { error: error.message };
+  await logActivity({ userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null, action: "update_external_contact", entityType: "external_contact", entityId: id, entityLabel: data.name ?? undefined });
+  revalidatePath("/tasks");
+  revalidatePath("/people");
+  return { success: true };
+}
+
+export async function deleteExternalContact(id: string) {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+  // Safety: ensure no follow-ups reference this contact
+  const { count } = await supabase.from("task_follow_ups").select("id", { head: true, count: "exact" }).eq("external_contact_id", id);
+  if (count && count > 0) return { error: `Cannot delete — ${count} follow-up${count > 1 ? "s are" : " is"} linked to this contact.` };
+  const { error } = await supabase.from("external_contacts").delete().eq("id", id);
+  if (error) return { error: error.message };
+  await logActivity({ userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null, action: "delete_external_contact", entityType: "external_contact", entityId: id });
+  revalidatePath("/tasks");
   revalidatePath("/people");
   return { success: true };
 }
@@ -938,4 +1528,161 @@ export async function getAllAssetsForExport(filters: {
       purchaseDate: a.purchase_date ?? "",
     })),
   };
+}
+
+// ─── Tasks ───────────────────────────────────────────────────────────────────
+
+export async function createTask(title: string): Promise<{ error: string | null; id: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError, id: null };
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert({ title: title.trim(), status: "Intel", priority: "Standard" })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message, id: null };
+  revalidatePath("/tasks");
+  return { error: null, id: data.id };
+}
+
+// Import Notion objectives and create tasks from them (idempotent)
+import notionObjectives from "./notionObjectives";
+
+export async function importNotionObjectives(): Promise<{ error: string | null; created: number }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError, created: 0 };
+
+  let created = 0;
+
+  for (const obj of notionObjectives) {
+    const title = (obj.title || "").trim();
+    if (!title) continue;
+
+    // Skip if a task with the same title already exists
+    const { data: existing, error: selectErr } = await supabase
+      .from("tasks")
+      .select("id")
+      .eq("title", title)
+      .limit(1);
+    if (selectErr) return { error: selectErr.message, created };
+    if ((existing ?? []).length > 0) continue;
+
+    // Map fields conservatively to allowed enums
+    const priority = (obj.priority as any) || "Standard";
+    const status = (obj.status as any) || "Intel";
+    const category = obj.category || null;
+    const source = obj.source || null;
+    const due_date = obj.dueDate || null;
+
+    const insertObj: Record<string, any> = {
+      title,
+      priority,
+      status,
+      category,
+      source,
+      due_date,
+    };
+
+    const { error: insertErr } = await supabase.from("tasks").insert(cleanEmptyStrings(insertObj) as any);
+    if (insertErr) return { error: insertErr.message, created };
+    created++;
+  }
+
+  revalidatePath("/tasks");
+  return { error: null, created };
+}
+
+export async function updateTaskField(
+  id: string,
+  field: "title" | "priority" | "category" | "source" | "due_date",
+  value: string | null
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("tasks")
+    .update({ [field]: value, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/tasks");
+  return { error: null };
+}
+
+export async function updateTaskStatus(
+  id: string,
+  status: string,
+  reason?: string | null
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("tasks")
+    .update({ status, status_reason: reason ?? null, status_changed_at: now, updated_at: now })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/tasks");
+  return { error: null };
+}
+
+export async function addTaskUpdate(
+  taskId: string,
+  body: string
+): Promise<{ error: string | null; update: { id: string; task_id: string; body: string; created_at: string } | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError, update: null };
+
+  const { data, error } = await supabase
+    .from("task_updates")
+    .insert({ task_id: taskId, body: body.trim() })
+    .select()
+    .single();
+
+  if (error) return { error: error.message, update: null };
+  revalidatePath("/tasks");
+  return { error: null, update: data };
+}
+
+export async function addTaskFollowUp(
+  taskId: string,
+  followUp: {
+    contact_id?: string | null;
+    external_contact_id?: string | null;
+    due_date: string;
+    note?: string | null;
+  }
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("task_follow_ups")
+    .insert({ task_id: taskId, ...followUp });
+
+  if (error) return { error: error.message };
+  revalidatePath("/tasks");
+  return { error: null };
+}
+
+export async function toggleFollowUpDone(
+  id: string,
+  isDone: boolean
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("task_follow_ups")
+    .update({ is_done: isDone, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/tasks");
+  return { error: null };
 }

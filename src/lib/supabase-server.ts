@@ -36,6 +36,6 @@ export async function getSession() {
 export async function getRole(): Promise<"admin" | "viewer" | null> {
   const user = await getSession();
   if (!user) return null;
-  const role = user.user_metadata?.role;
+  const role = user.app_metadata?.role;
   return role === "admin" ? "admin" : "viewer";
 }

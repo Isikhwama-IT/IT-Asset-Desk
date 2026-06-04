@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Search, X, ChevronDown, ChevronRight, Mail, Package, Pencil, Plus, LayoutGrid, List, ArrowUpRight } from "lucide-react";
 import { getCategoryIcon, getStatusConfig } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { AddContactModal, EditContactModal } from "@/components/ContactModals";
+import ExternalContactsView from "@/components/ExternalContactsView";
 import { useAuth } from "@/context/AuthContext";
 import type { Contact, Department, JobLevel, Location, AssetWithRelations } from "@/types/database";
 
@@ -234,8 +236,11 @@ export default function PeopleClientView({ contacts, assetsByContact, department
   const [filterLevel, setFilterLevel] = useState("");
   const [filterActive, setFilterActive] = useState("active");
   const [showAdd, setShowAdd] = useState(false);
+  const [addExternalTrigger, setAddExternalTrigger] = useState(0);
   const [editContact, setEditContact] = useState<ContactWithRelations | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "who-has-what">("cards");
+  const [showExternal, setShowExternal] = useState(false);
+  const [suppressViewToggle, setSuppressViewToggle] = useState(false);
 
   const filtered = useMemo(() => {
     return contacts.filter((c) => {
@@ -269,7 +274,7 @@ export default function PeopleClientView({ contacts, assetsByContact, department
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input type="text" placeholder="Search people…" value={search} onChange={(e) => setSearch(e.target.value)}
+          <input type="text" placeholder="Search contacts…" value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-8 pr-3 py-2 text-[13px] border border-stone-200 rounded-lg bg-white text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-stone-300" />
         </div>
 
@@ -302,9 +307,14 @@ export default function PeopleClientView({ contacts, assetsByContact, department
         <span className="text-[12px] text-stone-400">{filtered.length} of {contacts.length}</span>
 
         <div className="ml-auto flex items-center gap-2">
+          <div className="mr-2">
+            <button onClick={(e) => { e.stopPropagation(); setShowExternal((s) => !s); setSuppressViewToggle(true); setTimeout(() => setSuppressViewToggle(false), 300); }} className="text-[13px] px-2 py-1 rounded-lg border border-stone-200 bg-white">
+              {showExternal ? "External" : "Internal"}
+            </button>
+          </div>
           <div className="flex items-center border border-stone-200 rounded-lg overflow-hidden">
             <button
-              onClick={() => setViewMode("cards")}
+              onClick={() => { if (suppressViewToggle) return; setViewMode("cards") }}
               title="Cards view"
               className="px-2.5 py-1.5 transition-colors"
               style={{ background: viewMode === "cards" ? "#C04F28" : "transparent", color: viewMode === "cards" ? "#fff" : "#a8a29e" }}
@@ -312,7 +322,7 @@ export default function PeopleClientView({ contacts, assetsByContact, department
               <LayoutGrid size={13} />
             </button>
             <button
-              onClick={() => setViewMode("who-has-what")}
+              onClick={() => { if (suppressViewToggle) return; setViewMode("who-has-what") }}
               title="Who has what"
               className="px-2.5 py-1.5 transition-colors border-l border-stone-200"
               style={{ background: viewMode === "who-has-what" ? "#C04F28" : "transparent", color: viewMode === "who-has-what" ? "#fff" : "#a8a29e" }}
@@ -321,16 +331,28 @@ export default function PeopleClientView({ contacts, assetsByContact, department
             </button>
           </div>
           {isAdmin && (
-            <button onClick={() => setShowAdd(true)}
+            <button
+              onClick={(e) => { e.stopPropagation();
+                if (showExternal) {
+                  setAddExternalTrigger((t) => t + 1);
+                } else {
+                  setShowAdd(true);
+                }
+              }}
               className="flex items-center gap-1.5 text-[12.5px] font-medium text-white px-3 py-2 rounded-lg transition-colors btn-press"
-            style={{ background: "#C04F28" }}>
-              <Plus size={13} /> Add Person
+              style={{ background: "#C04F28" }}
+            >
+              <Plus size={13} /> {showExternal ? "Add External" : "Add Internal"}
             </button>
           )}
         </div>
       </div>
 
-      {viewMode === "cards" ? (
+      {showExternal ? (
+        <div className="mt-4">
+          <ExternalContactsView addTrigger={addExternalTrigger} viewMode={viewMode} />
+        </div>
+      ) : viewMode === "cards" ? (
         /* Grouped cards */
         <motion.div
           className="space-y-8"

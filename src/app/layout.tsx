@@ -30,8 +30,8 @@ export default async function RootLayout({
                 user.email?.split("@")[0] ??
                 "User",
               role:
-                user.user_metadata?.role === "admin" ? "admin" : "viewer",
-              isAdmin: user.user_metadata?.role === "admin",
+                user.app_metadata?.role === "admin" ? "admin" : "viewer",
+              isAdmin: user.app_metadata?.role === "admin",
             }}
           >
             <ToastProvider>

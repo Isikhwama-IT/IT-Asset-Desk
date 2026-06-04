@@ -56,7 +56,7 @@ export default async function PeoplePage() {
           <p className="text-[11px] font-medium uppercase tracking-widest" style={{ color: "#859474" }}>Directory</p>
         </div>
         <h1 className="text-2xl font-semibold" style={{ letterSpacing: "-0.03em", color: "#414042" }}>
-          Users
+          Contacts
           <span className="ml-2 text-lg font-normal" style={{ color: "#a8a29e" }}>{contacts.length}</span>
         </h1>
       </div>
