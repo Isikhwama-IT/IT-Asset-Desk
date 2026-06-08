@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2, Plus, Check, X, Save } from "lucide-react";
+import { SNMP_POLL_ENABLED } from "@/lib/features";
 import {
   createLookupItem, updateLookupItem, deleteLookupItem,
   createLocation, updateLocation, deleteLocation,
@@ -262,31 +263,33 @@ function GeneralTab({ warrantyAlertDays, snmpAutoPollEnabled }: { warrantyAlertD
         {error && <p className="text-[11.5px] text-red-500 mt-2">{error}</p>}
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-200 p-5">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[13px] font-medium text-stone-800 mb-0.5">Automatic SNMP Polling</p>
-            <p className="text-[12px] text-stone-500">
-              Controls whether the background poll daemon runs automatically on its schedule.
-              Manual polling via the &ldquo;Poll All&rdquo; button is always available.
-            </p>
+      {SNMP_POLL_ENABLED && (
+        <div className="bg-white rounded-xl border border-stone-200 p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] font-medium text-stone-800 mb-0.5">Automatic SNMP Polling</p>
+              <p className="text-[12px] text-stone-500">
+                Controls whether the background poll daemon runs automatically on its schedule.
+                Manual polling via the &ldquo;Poll All&rdquo; button is always available.
+              </p>
+            </div>
+            <button
+              onClick={toggleSnmpPoll}
+              disabled={snmpSaving}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0 ml-4 disabled:opacity-50 ${snmpEnabled ? "bg-emerald-500" : "bg-stone-200"}`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${snmpEnabled ? "translate-x-6" : "translate-x-1"}`}
+              />
+            </button>
           </div>
-          <button
-            onClick={toggleSnmpPoll}
-            disabled={snmpSaving}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0 ml-4 disabled:opacity-50 ${snmpEnabled ? "bg-emerald-500" : "bg-stone-200"}`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${snmpEnabled ? "translate-x-6" : "translate-x-1"}`}
-            />
-          </button>
+          {!snmpEnabled && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
+              Auto-polling is off. The daemon checks this setting each cycle — if you run it via Windows Task Scheduler, it will also respect this toggle. Manual polling still works.
+            </p>
+          )}
         </div>
-        {!snmpEnabled && (
-          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
-            Auto-polling is off. The daemon checks this setting each cycle — if you run it via Windows Task Scheduler, it will also respect this toggle. Manual polling still works.
-          </p>
-        )}
-      </div>
+      )}
     </div>
   );
 }

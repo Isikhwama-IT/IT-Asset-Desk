@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Activity, FileText, ChevronDown, Layers } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { SNMP_POLL_ENABLED } from "@/lib/features";
 import {
   Modal, FormField, Input, Select, Textarea, ModalFooter,
   BtnPrimary, BtnSecondary, ErrorBanner, FormStack, FormGrid,
@@ -579,55 +580,58 @@ export default function FleetActions({
           Order Paper
         </button>
 
-        {/* Poll controls */}
-        <button
-          className={btnBase}
-          onClick={() => poll()}
-          disabled={polling}
-        >
-          <Activity size={13} className={polling ? "animate-pulse" : ""} />
-          {polling ? "Polling…" : "Poll All"}
-        </button>
-
-        {/* Poll by site */}
-        {locations.length > 0 && (
-          <div className="relative">
+        {/* Poll controls — localhost only */}
+        {SNMP_POLL_ENABLED && (
+          <>
             <button
-              className={`${btnBase} pr-2`}
-              onClick={() => setSiteDropdownOpen((v) => !v)}
+              className={btnBase}
+              onClick={() => poll()}
               disabled={polling}
             >
-              <Activity size={13} />
-              Poll Site
-              <ChevronDown size={11} />
+              <Activity size={13} className={polling ? "animate-pulse" : ""} />
+              {polling ? "Polling…" : "Poll All"}
             </button>
-            {siteDropdownOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setSiteDropdownOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-xl border border-stone-200 shadow-lg py-1 min-w-[160px]">
-                  {locations.map((loc) => (
-                    <button
-                      key={loc.id}
-                      className="w-full text-left px-4 py-2 text-[12.5px] text-stone-700 hover:bg-stone-50 transition-colors"
-                      onClick={() => poll(loc.id)}
-                    >
-                      {loc.name}
-                    </button>
-                  ))}
-                </div>
-              </>
+
+            {locations.length > 0 && (
+              <div className="relative">
+                <button
+                  className={`${btnBase} pr-2`}
+                  onClick={() => setSiteDropdownOpen((v) => !v)}
+                  disabled={polling}
+                >
+                  <Activity size={13} />
+                  Poll Site
+                  <ChevronDown size={11} />
+                </button>
+                {siteDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setSiteDropdownOpen(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-20 bg-white rounded-xl border border-stone-200 shadow-lg py-1 min-w-[160px]">
+                      {locations.map((loc) => (
+                        <button
+                          key={loc.id}
+                          className="w-full text-left px-4 py-2 text-[12.5px] text-stone-700 hover:bg-stone-50 transition-colors"
+                          onClick={() => poll(loc.id)}
+                        >
+                          {loc.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
 
-      {/* Poll feedback */}
-      {pollError && (
+      {/* Poll feedback — localhost only */}
+      {SNMP_POLL_ENABLED && pollError && (
         <div className="mt-2 text-[12px] text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {pollError}
         </div>
       )}
-      {pollResult && (
+      {SNMP_POLL_ENABLED && pollResult && (
         <div className="mt-2 text-[12px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
           <div>
             Polled {pollResult.polled} printer{pollResult.polled !== 1 ? "s" : ""} - {pollResult.online} online, {pollResult.offline} offline

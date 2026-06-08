@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { SNMP_POLL_ENABLED } from "@/lib/features";
 import {
   Activity,
   FileText,
@@ -137,12 +138,14 @@ export default function PrinterDetailActions({
           <ActionButton icon={Package} label="Toner" onClick={() => setModal("toner")} />
           <ActionButton icon={Wrench} label="Ticket" onClick={() => setModal("ticket")} />
           <ActionButton icon={Gauge} label="Meter" onClick={() => setModal("meter")} />
-          <ActionButton
-            icon={Activity}
-            label={polling ? "Polling..." : "Poll SNMP"}
-            onClick={handleSnmpPoll}
-            disabled={polling || !printer.ip_address}
-          />
+          {SNMP_POLL_ENABLED && (
+            <ActionButton
+              icon={Activity}
+              label={polling ? "Polling..." : "Poll SNMP"}
+              onClick={handleSnmpPoll}
+              disabled={polling || !printer.ip_address}
+            />
+          )}
           <button
             onClick={() => setModal("edit")}
             className="flex items-center gap-1.5 text-[12.5px] font-medium text-white px-3 py-2 rounded-lg transition-colors btn-press"
@@ -179,12 +182,12 @@ export default function PrinterDetailActions({
           {deleteError && <span className="text-[12px] text-red-500">{deleteError}</span>}
         </div>
 
-        {pollError && (
+        {SNMP_POLL_ENABLED && pollError && (
           <div className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12px] text-red-700">
             {pollError}
           </div>
         )}
-        {pollResult && <PollResultCard result={pollResult} />}
+        {SNMP_POLL_ENABLED && pollResult && <PollResultCard result={pollResult} />}
       </div>
 
       {modal === "edit" && (
