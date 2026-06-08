@@ -158,14 +158,22 @@ function Chip({ label }: { label: string }) {
 
 // ── Printer card ──────────────────────────────────────────────────────────────
 
+type PageStats = { today: number | null; month: number | null };
+
+function fmt(n: number | null): string {
+  return n !== null ? n.toLocaleString() : "—";
+}
+
 function PrinterCard({
   printer,
   reading,
   trays,
+  pageStats,
 }: {
   printer: PrinterWithRelations;
   reading: PrinterSnmpReading | undefined;
   trays: PrinterTray[];
+  pageStats: PageStats | undefined;
 }) {
   const statusCfg = getPrinterStatusConfig(printer.status);
   const capabilities = getPrinterCapabilities(
@@ -242,16 +250,23 @@ function PrinterCard({
 
       {/* ── Footer ── */}
       <div className="border-t border-stone-50 pt-2 space-y-1.5">
-        {/* Meter + IP */}
+        {/* D / M / T meter + IP */}
         <div className="flex items-center justify-between text-[10.5px] text-stone-400">
           <div className="flex items-center gap-1">
             <Printer size={10} className="flex-shrink-0" />
+            <span className="font-medium text-stone-500">D</span>
+            <span>{fmt(pageStats?.today ?? null)}</span>
+            <span className="text-stone-200">·</span>
+            <span className="font-medium text-stone-500">M</span>
+            <span>{fmt(pageStats?.month ?? null)}</span>
+            <span className="text-stone-200">·</span>
+            <span className="font-medium text-stone-500">T</span>
             <span>
               {reading?.total_pages != null
-                ? `${reading.total_pages.toLocaleString()} pages`
+                ? reading.total_pages.toLocaleString()
                 : printer.last_meter_reading != null
-                ? `${printer.last_meter_reading.toLocaleString()} pages`
-                : "No meter"}
+                ? printer.last_meter_reading.toLocaleString()
+                : "—"}
             </span>
           </div>
           {printer.ip_address && (
@@ -285,10 +300,12 @@ export default function PrinterStatusGrid({
   printers,
   latestByPrinter,
   traysByPrinter,
+  pageStatsByPrinter = {},
 }: {
   printers: PrinterWithRelations[];
   latestByPrinter: Record<string, PrinterSnmpReading>;
   traysByPrinter: Record<string, PrinterTray[]>;
+  pageStatsByPrinter?: Record<string, PageStats>;
 }) {
   if (printers.length === 0) {
     return (
@@ -307,6 +324,7 @@ export default function PrinterStatusGrid({
           printer={p}
           reading={latestByPrinter[p.id]}
           trays={traysByPrinter[p.id] ?? []}
+          pageStats={pageStatsByPrinter[p.id]}
         />
       ))}
     </div>

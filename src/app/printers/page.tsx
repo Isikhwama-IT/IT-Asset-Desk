@@ -226,10 +226,18 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
     (p) => p.status === "Active" || p.status === "Needs Attention"
   ).length;
 
+  const today = now.toISOString().slice(0, 10);
+
+  // Group all month readings per printer, and separately group today's readings
   const meterByPrinter: Record<string, number[]> = {};
-  for (const r of (monthMeters ?? []) as { printer_id: string; reading: number }[]) {
+  const todayMeterByPrinter: Record<string, number[]> = {};
+  for (const r of (monthMeters ?? []) as { printer_id: string; reading: number; reading_at: string }[]) {
     if (!meterByPrinter[r.printer_id]) meterByPrinter[r.printer_id] = [];
     meterByPrinter[r.printer_id].push(r.reading);
+    if (r.reading_at === today) {
+      if (!todayMeterByPrinter[r.printer_id]) todayMeterByPrinter[r.printer_id] = [];
+      todayMeterByPrinter[r.printer_id].push(r.reading);
+    }
   }
   let pagesThisMonth = 0, colourPrinterPages = 0, monoPrinterPages = 0;
   for (const [pid, vals] of Object.entries(meterByPrinter)) {
@@ -440,6 +448,18 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
     });
   }
 
+  // ── Per-printer D/M/T page stats ─────────────────────────────────────────────
+  const pageStatsByPrinter: Record<string, { today: number | null; month: number | null }> = {};
+  for (const p of typedPrinters) {
+    const monthVals = meterByPrinter[p.id];
+    const todayVals = todayMeterByPrinter[p.id];
+    const monthPages = monthVals && monthVals.length >= 2
+      ? Math.max(...monthVals) - Math.min(...monthVals) : null;
+    const todayPages = todayVals && todayVals.length >= 2
+      ? Math.max(...todayVals) - Math.min(...todayVals) : null;
+    pageStatsByPrinter[p.id] = { today: todayPages, month: monthPages };
+  }
+
   const kpi: PrinterKpi = {
     total: typedPrinters.length,
     online,
@@ -466,6 +486,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
     contacts: contacts ?? [],
     latestByPrinter,
     traysByPrinter,
+    pageStatsByPrinter,
     meterRows: readingRows,
     totalReadings: totalReadings ?? 0,
     readingsPage,
@@ -512,6 +533,7 @@ export default async function PrintersPage({
     contacts,
     latestByPrinter,
     traysByPrinter,
+    pageStatsByPrinter,
     meterRows,
     totalReadings,
     alerts,
@@ -588,7 +610,7 @@ export default async function PrintersPage({
               <p className="text-[11px] text-stone-400">{printers.length} printer{printers.length !== 1 ? "s" : ""}</p>
             </div>
             <div className="p-4">
-              <PrinterStatusGrid printers={printers} latestByPrinter={latestByPrinter} traysByPrinter={traysByPrinter ?? {}} />
+              <PrinterStatusGrid printers={printers} latestByPrinter={latestByPrinter} traysByPrinter={traysByPrinter ?? {}} pageStatsByPrinter={pageStatsByPrinter} />
             </div>
           </div>
         </>
