@@ -1509,20 +1509,30 @@ export async function createContact(data: {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();
   if (authError || !supabase || !user) return { error: authError };
 
+  // Auto-assign next printer_code = MAX(printer_code) + 1, fallback to 5919
+  const { data: maxRow } = await supabase
+    .from("contacts")
+    .select("printer_code")
+    .not("printer_code", "is", null)
+    .order("printer_code", { ascending: false })
+    .limit(1)
+    .single();
+  const nextCode = maxRow?.printer_code != null ? maxRow.printer_code + 1 : 5919;
+
   const clean = Object.fromEntries(
     Object.entries(data).map(([k, v]) => [k, v === "" ? null : v])
   );
   const contactId = crypto.randomUUID();
   const { error } = await supabase
     .from("contacts")
-    .insert({ id: contactId, ...clean, is_active: true } as ContactInsert);
+    .insert({ id: contactId, ...clean, is_active: true, printer_code: nextCode } as ContactInsert);
   if (error) return { error: error.message };
   await logActivity({
     userId: user.id, userName: user.user_metadata?.full_name ?? null, userEmail: user.email ?? null,
     action: "create_contact", entityType: "contact", entityId: contactId, entityLabel: data.full_name,
   });
   revalidatePath("/people");
-  return { success: true };
+  return { success: true, printer_code: nextCode };
 }
 
 export async function updateContact(
@@ -1533,6 +1543,7 @@ export async function updateContact(
     department_id?: string;
     job_level_id?: string;
     location_id?: string;
+    printer_code?: number | null;
   }
 ) {
   const { error: authError, supabase, user } = await getAuthenticatedAdmin();

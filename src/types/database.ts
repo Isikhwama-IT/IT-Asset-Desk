@@ -504,6 +504,7 @@ export interface Database {
           job_level_id: string | null;
           location_id: string | null;
           is_active: boolean;
+          printer_code: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -515,6 +516,7 @@ export interface Database {
           job_level_id?: string | null;
           location_id?: string | null;
           is_active?: boolean;
+          printer_code?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -526,6 +528,7 @@ export interface Database {
           job_level_id?: string | null;
           location_id?: string | null;
           is_active?: boolean;
+          printer_code?: number | null;
           updated_at?: string;
         };
         Relationships: [];

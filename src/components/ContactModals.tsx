@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Printer } from "lucide-react";
 import {
   Modal, FormField, Input, Select, Textarea,
   ModalFooter, BtnPrimary, BtnSecondary, BtnDanger, ErrorBanner, FormGrid, FormStack, ConfirmInline,
@@ -34,6 +35,7 @@ export function AddContactModal({
   const [error, setError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [assignedCode, setAssignedCode] = useState<number | null>(null);
   const [form, setForm] = useState({
     full_name: "",
     email: "",
@@ -55,8 +57,38 @@ export function AddContactModal({
     const res = await createContact(form);
     setLoading(false);
     if (res?.error) { setConfirming(false); return setError(res.error); }
+    if (res?.printer_code) setAssignedCode(res.printer_code);
     router.refresh();
-    onClose();
+    if (!res?.printer_code) onClose();
+  }
+
+  // After success: show the assigned code before closing
+  if (assignedCode !== null) {
+    return (
+      <Modal title="Person Added" subtitle={form.full_name} onClose={onClose}>
+        <div className="px-6 py-6 flex flex-col items-center gap-4">
+          <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#eef3e6" }}>
+            <Printer size={24} style={{ color: "#415445" }} />
+          </div>
+          <div className="text-center">
+            <p className="text-[13px] text-stone-500 mb-1">Printer code assigned</p>
+            <p className="text-3xl font-bold tabular-nums" style={{ color: "#C04F28", letterSpacing: "-0.03em" }}>
+              {assignedCode}
+            </p>
+            <p className="text-[12px] text-stone-400 mt-2">
+              Give this code to {form.full_name} — they use it on the Rainbow Park, Baker Street, and Loan printers.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 text-[13px] font-medium text-white rounded-lg transition-colors"
+            style={{ background: "#C04F28" }}
+          >
+            Done
+          </button>
+        </div>
+      </Modal>
+    );
   }
 
   return (
@@ -111,6 +143,13 @@ export function AddContactModal({
           </Select>
         </FormField>
 
+        <div className="px-4 py-3 rounded-lg border border-stone-100 bg-stone-50 flex items-center gap-2.5">
+          <Printer size={13} className="text-stone-400 flex-shrink-0" />
+          <p className="text-[12px] text-stone-500">
+            A printer code will be auto-assigned when you save.
+          </p>
+        </div>
+
         <ModalFooter>
           <BtnSecondary onClick={onClose}>Cancel</BtnSecondary>
           <ConfirmInline
@@ -146,6 +185,7 @@ export function EditContactModal({
   const [toggleLoading, setToggleLoading] = useState(false);
   const [error, setError] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [codeError, setCodeError] = useState("");
   const [confirmingToggle, setConfirmingToggle] = useState(false);
   const [confirmingSave, setConfirmingSave] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -157,19 +197,36 @@ export function EditContactModal({
     department_id: contact.department_id ?? "",
     job_level_id: contact.job_level_id ?? "",
     location_id: contact.location_id ?? "",
+    printer_code: contact.printer_code != null ? String(contact.printer_code) : "",
   });
   const set = (k: string, v: string) => {
     setForm((f) => ({ ...f, [k]: v }));
     setConfirmingSave(false);
     if (k === "email") setEmailError("");
+    if (k === "printer_code") setCodeError("");
   };
 
   async function handleSubmit() {
     if (!form.full_name.trim()) return setError("Full name is required.");
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return setEmailError("Please enter a valid email address.");
+
+    let printerCode: number | null = null;
+    if (form.printer_code.trim() !== "") {
+      const parsed = parseInt(form.printer_code.trim(), 10);
+      if (isNaN(parsed) || parsed < 1) return setCodeError("Enter a valid positive number.");
+      printerCode = parsed;
+    }
+
     setLoading(true);
     setError("");
-    const res = await updateContact(contact.id, form);
+    const res = await updateContact(contact.id, {
+      full_name: form.full_name,
+      email: form.email,
+      department_id: form.department_id,
+      job_level_id: form.job_level_id,
+      location_id: form.location_id,
+      printer_code: printerCode,
+    });
     setLoading(false);
     if (res?.error) { setConfirmingSave(false); return setError(res.error); }
     router.refresh();
@@ -197,6 +254,26 @@ export function EditContactModal({
     <Modal title="Edit Person" subtitle={contact.full_name} onClose={onClose}>
       <FormStack>
         {error && <ErrorBanner message={error} />}
+
+        {/* Printer code display / override */}
+        <div className="px-4 py-3 rounded-lg border border-stone-200 bg-stone-50 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "#eef3e6" }}>
+            <Printer size={14} style={{ color: "#415445" }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-medium text-stone-500 uppercase tracking-wider mb-1">Printer Code</p>
+            <input
+              type="number"
+              className={`w-full text-[14px] font-semibold bg-transparent border-none outline-none p-0 tabular-nums ${codeError ? "text-red-500" : "text-stone-800"}`}
+              style={{ letterSpacing: "-0.02em" }}
+              value={form.printer_code}
+              onChange={(e) => set("printer_code", e.target.value)}
+              placeholder="Not yet assigned"
+              min={1}
+            />
+            {codeError && <p className="text-[11px] text-red-500 mt-0.5">{codeError}</p>}
+          </div>
+        </div>
 
         <FormField label="Full Name" required>
           <Input

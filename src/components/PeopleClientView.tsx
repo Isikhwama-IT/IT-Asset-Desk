@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Search, X, ChevronDown, ChevronRight, Mail, Package, Pencil, Plus, LayoutGrid, List, ArrowUpRight } from "lucide-react";
+import { Search, X, ChevronDown, ChevronRight, Mail, Package, Pencil, Plus, LayoutGrid, List, ArrowUpRight, Download, Printer } from "lucide-react";
 import { getCategoryIcon, getStatusConfig } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/motion";
@@ -45,6 +45,28 @@ function getAvatarColor(name: string): string {
   return avatarColors[hash];
 }
 
+function downloadContactsCsv(contacts: ContactWithRelations[]) {
+  const header = ["Full Name", "Printer Code", "Email", "Department", "Job Level", "Site"];
+  const rows = contacts.map((c) => [
+    c.full_name,
+    c.printer_code != null ? String(c.printer_code) : "",
+    c.email ?? "",
+    c.department?.name ?? "",
+    c.job_level?.name ?? "",
+    c.location?.name ?? "",
+  ]);
+  const csv = [header, ...rows]
+    .map((row) => row.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `contacts-report-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function ContactCard({
   contact,
   assets,
@@ -73,6 +95,12 @@ function ContactCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-[13.5px] font-medium text-stone-900 leading-tight">{contact.full_name}</p>
+              {contact.printer_code != null && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-mono font-semibold px-1.5 py-0.5 rounded" style={{ background: "#eef3e6", color: "#415445" }}>
+                  <Printer size={8} />
+                  {contact.printer_code}
+                </span>
+              )}
               {!contact.is_active && (
                 <span className="text-[10px] text-stone-400 bg-stone-100 px-1.5 py-0.5 rounded-full">Inactive</span>
               )}
@@ -245,7 +273,11 @@ export default function PeopleClientView({ contacts, assetsByContact, department
   const filtered = useMemo(() => {
     return contacts.filter((c) => {
       const q = search.toLowerCase();
-      const matchSearch = !q || c.full_name.toLowerCase().includes(q) || (c.email ?? "").toLowerCase().includes(q);
+      const matchSearch =
+        !q ||
+        c.full_name.toLowerCase().includes(q) ||
+        (c.email ?? "").toLowerCase().includes(q) ||
+        (c.printer_code != null && String(c.printer_code).includes(q));
       const matchDept = !filterDept || c.department?.name === filterDept;
       const matchLevel = !filterLevel || c.job_level?.name === filterLevel;
       const matchActive =
@@ -330,6 +362,15 @@ export default function PeopleClientView({ contacts, assetsByContact, department
               <List size={13} />
             </button>
           </div>
+          {!showExternal && (
+            <button
+              onClick={() => downloadContactsCsv(filtered)}
+              title="Download contacts report (CSV)"
+              className="flex items-center gap-1.5 text-[12.5px] font-medium text-stone-600 px-3 py-2 rounded-lg border border-stone-200 bg-white hover:bg-stone-50 transition-colors"
+            >
+              <Download size={13} /> Report
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={(e) => { e.stopPropagation();
