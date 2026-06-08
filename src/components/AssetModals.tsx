@@ -467,7 +467,7 @@ export function ChangeStatusModal({
       <FormStack>
         {error && <ErrorBanner message={error} />}
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {statuses.map((s) => {
             const cfg = getStatusConfig(s.name);
             const active = selectedId === s.id;

@@ -19,7 +19,7 @@ export async function createSupabaseServerClient() {
             );
           } catch {
             // setAll is called from Server Components where cookies cannot be set.
-            // This is safe to ignore — the middleware handles session refresh.
+            // This is safe to ignore because the proxy handles session refresh.
           }
         },
       },

@@ -4,7 +4,7 @@ function Sk({ className }: { className?: string }) {
 
 export default function SettingsLoading() {
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-4 sm:p-8 max-w-3xl mx-auto">
       <Sk className="h-3 w-16 mb-3" />
       <Sk className="h-7 w-32 mb-2" />
       <Sk className="h-4 w-64 mb-8" />

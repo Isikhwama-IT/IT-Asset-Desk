@@ -9,9 +9,13 @@ load_dotenv(Path(__file__).with_name(".env"))
 SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "").strip()
 SNMP_COMMUNITY = os.getenv("SNMP_COMMUNITY", "public").strip()
+SNMP_VERSION = os.getenv("SNMP_VERSION", "2c").strip().lower()
 SNMP_PORT = int(os.getenv("SNMP_PORT", "161"))
 POLL_INTERVAL_MINUTES = int(os.getenv("POLL_INTERVAL_MINUTES", "60"))
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").strip().upper()
+# Filter polls to printers whose IP starts with this prefix.
+# Baker Street: 192.168.21.   Rainbow Park: 192.168.20.   (empty = poll all)
+POLL_IP_PREFIX = os.getenv("POLL_IP_PREFIX", "").strip()
 
 PRINTERS = [
     {
@@ -57,10 +61,10 @@ PRINTERS = [
 ]
 
 TONER_FLAG_THRESHOLDS = {
-    100: "New",
-    75: "In Use",
-    50: "Half",
-    25: "Order Now",
+    76: "New",
+    51: "In Use",
+    26: "Half",
+    1: "Order Now",
     0: "Empty",
 }
 

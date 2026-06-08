@@ -49,7 +49,7 @@ export default async function PeoplePage() {
   const { contacts, assetsByContact, departments, jobLevels, locations } = await getPeopleData();
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <span className="w-1 h-3.5 rounded-full inline-block" style={{ background: "#C04F28" }} />

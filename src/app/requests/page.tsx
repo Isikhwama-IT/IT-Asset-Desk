@@ -14,7 +14,7 @@ export default async function RequestsPage() {
     .order("created_at", { ascending: false });
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <div className="mb-8 fade-up">
         <div className="flex items-center gap-2 mb-1">
           <span className="w-1 h-3.5 rounded-full inline-block" style={{ background: "#C04F28" }} />

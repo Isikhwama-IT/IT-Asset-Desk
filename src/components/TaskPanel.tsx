@@ -3,14 +3,22 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Loader2, Plus, UserCheck, UserX, X } from "lucide-react";
+import { Check, GitBranch, Loader2, Plus, Search, Trash2, UserCheck, UserX, X } from "lucide-react";
 import {
+  addTaskChecklistItem,
+  addTaskDependency,
   addTaskFollowUp,
   addTaskUpdate,
+  deleteTaskChecklistItem,
+  deleteTaskDependency,
+  deleteTask,
+  snoozeTaskFollowUp,
   toggleFollowUpDone,
+  toggleTaskChecklistItem,
   updateTaskField,
   updateTaskStatus,
 } from "@/lib/actions";
+import { useToast } from "@/components/Toast";
 import {
   TASK_CATEGORIES,
   TASK_PRIORITIES,
@@ -21,13 +29,27 @@ import {
   getTaskStatusConfig,
 } from "@/lib/tasks";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
-import type { TaskFollowUp, TaskUpdate, TaskWithActivity } from "@/types/database";
+import type { TaskChecklistItem, TaskDependency, TaskFollowUp, TaskUpdate, TaskWithActivity } from "@/types/database";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface FollowUpWithPerson extends TaskFollowUp {
   contact: { id: string; full_name: string } | null;
   external_contact: { id: string; name: string; company: string | null } | null;
+}
+
+interface DependencyTask {
+  id: string;
+  task_code: number;
+  title: string;
+  status: string;
+  priority: string;
+  due_date: string | null;
+  archived_at?: string | null;
+}
+
+interface DependencyWithTask extends TaskDependency {
+  depends_on_task: DependencyTask | null;
 }
 
 interface PersonResult {
@@ -44,12 +66,18 @@ interface Props {
 }
 
 const REASON_REQUIRED = new Set(["Re-Routed", "Standby", "Neutralized", "Retired"]);
+const CLOSED_TASK_STATUSES = new Set(["Neutralized", "Retired"]);
 
 const EASE: [number, number, number, number] = [0.4, 0, 0.2, 1];
+
+function datePlusDays(days: number) {
+  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+}
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 export function TaskPanel({ task, onClose, onUpdated }: Props) {
+  const { success } = useToast();
   const [mounted, setMounted] = useState(false);
   const open = task !== null;
 
@@ -83,6 +111,30 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
   const [followUpNote, setFollowUpNote] = useState("");
   const [addingFollowUp, setAddingFollowUp] = useState(false);
 
+  // Checklist state
+  const [checklist, setChecklist] = useState<TaskChecklistItem[]>([]);
+  const [checklistLoading, setChecklistLoading] = useState(false);
+  const [newChecklistItem, setNewChecklistItem] = useState("");
+  const [addingChecklistItem, setAddingChecklistItem] = useState(false);
+  const [savingChecklistId, setSavingChecklistId] = useState<string | null>(null);
+  const [checklistError, setChecklistError] = useState("");
+
+  // Dependency / blocker state
+  const [dependencies, setDependencies] = useState<DependencyWithTask[]>([]);
+  const [dependenciesLoading, setDependenciesLoading] = useState(false);
+  const [dependencyQuery, setDependencyQuery] = useState("");
+  const [dependencyResults, setDependencyResults] = useState<DependencyTask[]>([]);
+  const [dependencySearchOpen, setDependencySearchOpen] = useState(false);
+  const [addingDependencyId, setAddingDependencyId] = useState<string | null>(null);
+  const [removingDependencyId, setRemovingDependencyId] = useState<string | null>(null);
+  const [dependencyError, setDependencyError] = useState("");
+  const dependencyDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const [snoozingFollowUpId, setSnoozingFollowUpId] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deletingTask, setDeletingTask] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
   // ── Init ───────────────────────────────────────────────────────────────────
   useEffect(() => { setMounted(true); }, []);
 
@@ -109,13 +161,31 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
     setUpdateBody("");
     setUpdates([]);
     setFollowUps([]);
+    setChecklist([]);
+    setDependencies([]);
+    setNewChecklistItem("");
+    setChecklistError("");
+    setDependencyQuery("");
+    setDependencyResults([]);
+    setDependencySearchOpen(false);
+    setDependencyError("");
+    setSnoozingFollowUpId(null);
+    setConfirmingDelete(false);
+    setDeletingTask(false);
+    setDeleteError("");
     fetchThread(task.id);
     fetchFollowUps(task.id);
+    fetchChecklist(task.id);
+    fetchDependencies(task.id);
   }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [updates]);
+
+  useEffect(() => {
+    return () => clearTimeout(dependencyDebounceRef.current);
+  }, []);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   async function fetchThread(taskId: string) {
@@ -140,6 +210,50 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
       .order("due_date");
     setFollowUps((data ?? []) as FollowUpWithPerson[]);
     setFollowUpsLoading(false);
+  }
+
+  async function fetchChecklist(taskId: string) {
+    setChecklistLoading(true);
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase
+      .from("task_checklist_items")
+      .select("*")
+      .eq("task_id", taskId)
+      .order("sort_order")
+      .order("created_at");
+    setChecklist((data ?? []) as TaskChecklistItem[]);
+    setChecklistLoading(false);
+  }
+
+  async function fetchDependencies(taskId: string) {
+    setDependenciesLoading(true);
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase
+      .from("task_dependencies")
+      .select("id, task_id, depends_on_task_id, created_at, depends_on_task:tasks!task_dependencies_depends_on_task_id_fkey(id, task_code, title, status, priority, due_date, archived_at)")
+      .eq("task_id", taskId)
+      .order("created_at");
+    setDependencies((data ?? []) as unknown as DependencyWithTask[]);
+    setDependenciesLoading(false);
+  }
+
+  async function searchDependencies(q: string) {
+    if (!task) return;
+    const clean = q.trim();
+    const supabase = createSupabaseBrowserClient();
+    let query = supabase
+      .from("tasks")
+      .select("id, task_code, title, status, priority, due_date, archived_at")
+      .is("archived_at", null)
+      .neq("id", task.id)
+      .order("created_at", { ascending: false })
+      .limit(8);
+
+    if (clean) query = query.ilike("title", `%${clean}%`);
+
+    const { data } = await query;
+    const linkedIds = new Set(dependencies.map((d) => d.depends_on_task_id));
+    setDependencyResults(((data ?? []) as DependencyTask[]).filter((t) => !linkedIds.has(t.id)));
   }
 
   // ── Save handlers ──────────────────────────────────────────────────────────
@@ -219,10 +333,115 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
     onUpdated();
   }
 
+  async function handleSnoozeFollowUp(id: string, days: number) {
+    const dueDate = datePlusDays(days);
+    setSnoozingFollowUpId(id);
+    const res = await snoozeTaskFollowUp(id, dueDate);
+    if (!res.error) {
+      setFollowUps((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, due_date: dueDate, is_done: false } : f))
+      );
+      onUpdated();
+    }
+    setSnoozingFollowUpId(null);
+  }
+
+  async function submitChecklistItem() {
+    if (!task || !newChecklistItem.trim()) return;
+    setAddingChecklistItem(true);
+    setChecklistError("");
+    const res = await addTaskChecklistItem(task.id, newChecklistItem);
+    if (res.error || !res.item) {
+      setChecklistError(res.error ?? "Could not add checklist item.");
+    } else {
+      setChecklist((prev) => [...prev, res.item!]);
+      setNewChecklistItem("");
+      onUpdated();
+    }
+    setAddingChecklistItem(false);
+  }
+
+  async function handleToggleChecklistItem(item: TaskChecklistItem) {
+    setSavingChecklistId(item.id);
+    await toggleTaskChecklistItem(item.id, !item.is_done);
+    setChecklist((prev) =>
+      prev.map((current) => current.id === item.id ? { ...current, is_done: !item.is_done } : current)
+    );
+    setSavingChecklistId(null);
+    onUpdated();
+  }
+
+  async function handleDeleteChecklistItem(id: string) {
+    setSavingChecklistId(id);
+    const res = await deleteTaskChecklistItem(id);
+    if (!res.error) {
+      setChecklist((prev) => prev.filter((item) => item.id !== id));
+      onUpdated();
+    }
+    setSavingChecklistId(null);
+  }
+
+  function handleDependencyQueryChange(value: string) {
+    setDependencyQuery(value);
+    setDependencySearchOpen(true);
+    setDependencyError("");
+    clearTimeout(dependencyDebounceRef.current);
+    dependencyDebounceRef.current = setTimeout(() => searchDependencies(value), 250);
+  }
+
+  async function handleAddDependency(dependsOnTaskId: string) {
+    if (!task) return;
+    setAddingDependencyId(dependsOnTaskId);
+    setDependencyError("");
+    const res = await addTaskDependency(task.id, dependsOnTaskId);
+    if (res.error || !res.dependency) {
+      setDependencyError(res.error ?? "Could not add dependency.");
+    } else {
+      setDependencies((prev) => [...prev, res.dependency!]);
+      setDependencyQuery("");
+      setDependencyResults([]);
+      setDependencySearchOpen(false);
+      onUpdated();
+    }
+    setAddingDependencyId(null);
+  }
+
+  async function handleDeleteDependency(id: string) {
+    setRemovingDependencyId(id);
+    const res = await deleteTaskDependency(id);
+    if (!res.error) {
+      setDependencies((prev) => prev.filter((dependency) => dependency.id !== id));
+      onUpdated();
+    }
+    setRemovingDependencyId(null);
+  }
+
+  async function handleDeleteTask() {
+    if (!task) return;
+    setDeletingTask(true);
+    setDeleteError("");
+
+    const res = await deleteTask(task.id);
+    if (res.error) {
+      setDeleteError(res.error);
+      setDeletingTask(false);
+      return;
+    }
+
+    success(`Deleted ${formatTaskCode(task.task_code)}`);
+    setDeletingTask(false);
+    onClose();
+    onUpdated();
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
   if (!mounted) return null;
 
   const today = new Date().toISOString().slice(0, 10);
+  const completedChecklistCount = checklist.filter((item) => item.is_done).length;
+  const openDependencies = dependencies.filter((dependency) =>
+    dependency.depends_on_task && !CLOSED_TASK_STATUSES.has(dependency.depends_on_task.status)
+  );
 
   return createPortal(
     <AnimatePresence>
@@ -290,6 +509,83 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
                     )}
                   </div>
 
+                  {/* Checklist */}
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">
+                        Checklist
+                      </p>
+                      {checklist.length > 0 && (
+                        <span className="text-[11px] text-stone-400">
+                          {completedChecklistCount}/{checklist.length}
+                        </span>
+                      )}
+                    </div>
+
+                    {checklistError && (
+                      <p className="mb-2 text-[12px] text-red-600">{checklistError}</p>
+                    )}
+
+                    {checklistLoading ? (
+                      <div className="flex justify-center py-4">
+                        <Loader2 size={16} className="text-stone-300 animate-spin" />
+                      </div>
+                    ) : checklist.length === 0 ? (
+                      <p className="text-[12.5px] text-stone-400 italic mb-3">No checklist items yet</p>
+                    ) : (
+                      <div className="space-y-1.5 mb-3">
+                        {checklist.map((item) => (
+                          <div key={item.id} className="flex items-start gap-2 group">
+                            <button
+                              onClick={() => handleToggleChecklistItem(item)}
+                              disabled={savingChecklistId === item.id}
+                              className={`flex-shrink-0 mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                                item.is_done
+                                  ? "bg-stone-800 border-stone-800"
+                                  : "border-stone-300 hover:border-stone-500"
+                              }`}
+                            >
+                              {savingChecklistId === item.id ? (
+                                <Loader2 size={10} className="animate-spin text-stone-400" />
+                              ) : item.is_done ? (
+                                <Check size={10} className="text-white" />
+                              ) : null}
+                            </button>
+                            <span className={`flex-1 text-[13px] leading-snug ${item.is_done ? "text-stone-400 line-through" : "text-stone-700"}`}>
+                              {item.body}
+                            </span>
+                            <button
+                              onClick={() => handleDeleteChecklistItem(item.id)}
+                              disabled={savingChecklistId === item.id}
+                              className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 transition-all"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <input
+                        value={newChecklistItem}
+                        onChange={(e) => { setNewChecklistItem(e.target.value); if (checklistError) setChecklistError(""); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") submitChecklistItem(); }}
+                        placeholder="Add checklist item..."
+                        className="flex-1 px-3 py-2 text-[13px] text-stone-800 border border-stone-200 rounded-lg bg-white placeholder-stone-300 focus:outline-none focus:ring-1 focus:ring-stone-300"
+                      />
+                      <button
+                        onClick={submitChecklistItem}
+                        disabled={!newChecklistItem.trim() || addingChecklistItem}
+                        className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-[12.5px] font-medium text-white rounded-lg transition-colors disabled:opacity-40"
+                        style={{ background: "#415445" }}
+                      >
+                        {addingChecklistItem ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                        Add
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Updates thread */}
                   <div>
                     <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-3">
@@ -340,6 +636,116 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
                       >
                         {postingUpdate ? <Loader2 size={14} className="animate-spin" /> : "Post"}
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Dependencies / blockers */}
+                  <div>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">
+                        Dependencies
+                      </p>
+                      {openDependencies.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.5">
+                          <GitBranch size={11} />
+                          {openDependencies.length} blocker{openDependencies.length === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </div>
+
+                    {dependencyError && (
+                      <p className="mb-2 text-[12px] text-red-600">{dependencyError}</p>
+                    )}
+
+                    {dependenciesLoading ? (
+                      <div className="flex justify-center py-4">
+                        <Loader2 size={16} className="text-stone-300 animate-spin" />
+                      </div>
+                    ) : dependencies.length === 0 ? (
+                      <p className="text-[12.5px] text-stone-400 italic mb-3">No dependencies linked</p>
+                    ) : (
+                      <div className="space-y-2 mb-3">
+                        {dependencies.map((dependency) => {
+                          const linkedTask = dependency.depends_on_task;
+                          if (!linkedTask) return null;
+                          const cfg = getTaskStatusConfig(linkedTask.status);
+                          const isBlocking = !CLOSED_TASK_STATUSES.has(linkedTask.status);
+                          return (
+                            <div
+                              key={dependency.id}
+                              className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border ${
+                                isBlocking ? "border-amber-100 bg-amber-50" : "border-stone-100 bg-white"
+                              }`}
+                            >
+                              <GitBranch size={13} className={isBlocking ? "text-amber-500 mt-0.5" : "text-stone-300 mt-0.5"} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[11px] font-mono text-stone-400">{formatTaskCode(linkedTask.task_code)}</span>
+                                  <span className="text-[13px] font-medium text-stone-700 truncate">{linkedTask.title}</span>
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-medium ${cfg.bg} ${cfg.color}`}>
+                                    <span className={`w-1 h-1 rounded-full ${cfg.dot}`} />
+                                    {linkedTask.status}
+                                  </span>
+                                  {linkedTask.due_date && (
+                                    <span className="text-[11px] text-stone-400">
+                                      Due {new Date(linkedTask.due_date + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => handleDeleteDependency(dependency.id)}
+                                disabled={removingDependencyId === dependency.id}
+                                className="text-stone-300 hover:text-red-500 transition-colors"
+                              >
+                                {removingDependencyId === dependency.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div className="relative">
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300" />
+                          <input
+                            value={dependencyQuery}
+                            onChange={(e) => handleDependencyQueryChange(e.target.value)}
+                            onFocus={() => { setDependencySearchOpen(true); searchDependencies(dependencyQuery); }}
+                            placeholder="Search task to block on..."
+                            className="w-full pl-8 pr-3 py-2 text-[13px] text-stone-800 border border-stone-200 rounded-lg bg-white placeholder-stone-300 focus:outline-none focus:ring-1 focus:ring-stone-300"
+                          />
+                        </div>
+                      </div>
+                      {dependencySearchOpen && dependencyResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1.5 z-30 bg-white border border-stone-200 rounded-xl shadow-lg py-1.5 max-h-56 overflow-y-auto">
+                          {dependencyResults.map((result) => {
+                            const cfg = getTaskStatusConfig(result.status);
+                            return (
+                              <button
+                                key={result.id}
+                                onClick={() => handleAddDependency(result.id)}
+                                disabled={addingDependencyId === result.id}
+                                className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-stone-50 text-left transition-colors disabled:opacity-60"
+                              >
+                                <span className="text-[11px] font-mono text-stone-400 w-16 flex-shrink-0">{formatTaskCode(result.task_code)}</span>
+                                <span className="flex-1 min-w-0">
+                                  <span className="block text-[13px] text-stone-800 truncate">{result.title}</span>
+                                  <span className={`inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full text-[10.5px] font-medium ${cfg.bg} ${cfg.color}`}>
+                                    <span className={`w-1 h-1 rounded-full ${cfg.dot}`} />
+                                    {result.status}
+                                  </span>
+                                </span>
+                                {addingDependencyId === result.id && <Loader2 size={13} className="animate-spin text-stone-400" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -439,6 +845,21 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
                                 </div>
                                 {f.note && (
                                   <p className={`text-[12px] mt-0.5 ${f.is_done ? "text-stone-400" : "text-stone-500"}`}>{f.note}</p>
+                                )}
+                                {!f.is_done && (
+                                  <div className="flex items-center gap-1.5 mt-2">
+                                    <span className="text-[10.5px] text-stone-400">Snooze</span>
+                                    {([["1d", 1], ["3d", 3], ["1w", 7]] as const).map(([label, days]) => (
+                                      <button
+                                        key={`${f.id}-${label}`}
+                                        onClick={() => handleSnoozeFollowUp(f.id, days)}
+                                        disabled={snoozingFollowUpId === f.id}
+                                        className="px-1.5 py-0.5 text-[10.5px] font-medium text-stone-500 border border-stone-200 rounded-md hover:bg-white hover:text-stone-700 transition-colors disabled:opacity-50"
+                                      >
+                                        {snoozingFollowUpId === f.id ? "..." : `+${label}`}
+                                      </button>
+                                    ))}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -594,6 +1015,43 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
                         <p className="text-[11px] text-stone-400 mt-1 italic">"{task.status_reason}"</p>
                       )}
                     </FieldRow>
+                  </div>
+
+                  <div className="border-t border-stone-100 pt-4">
+                    <p className="text-[10.5px] font-medium text-stone-400 uppercase tracking-wider mb-2">Actions</p>
+                    {deleteError && (
+                      <p className="mb-2 text-[11.5px] text-red-600 leading-snug">{deleteError}</p>
+                    )}
+                    {confirmingDelete ? (
+                      <div className="space-y-2">
+                        <p className="text-[12px] text-stone-500">Delete this task?</p>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={handleDeleteTask}
+                            disabled={deletingTask}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11.5px] font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                          >
+                            {deletingTask && <Loader2 size={12} className="animate-spin" />}
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => { setConfirmingDelete(false); setDeleteError(""); }}
+                            disabled={deletingTask}
+                            className="flex-1 px-2.5 py-1.5 text-[11.5px] font-medium text-stone-600 border border-stone-200 rounded-lg hover:bg-stone-50 transition-colors disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmingDelete(true)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={13} />
+                        Delete task
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

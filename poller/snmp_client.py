@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, List, Optional, Tuple
 
-from config import SNMP_PORT
+from config import SNMP_PORT, SNMP_VERSION
 
 
 TIMEOUT_SECONDS = 3
@@ -77,15 +77,23 @@ def _async_ready() -> bool:
     )
 
 
+def _mp_models() -> List[int]:
+    if SNMP_VERSION in ("1", "v1"):
+        return [0]
+    if SNMP_VERSION in ("auto", "any"):
+        return [1, 0]
+    return [1]
+
+
 def _legacy_transport(ip: str):
     return UdpTransportTarget((ip, SNMP_PORT), timeout=TIMEOUT_SECONDS, retries=RETRIES)
 
 
-def _legacy_get(ip: str, community: str, oid: str) -> Optional[str]:
+def _legacy_get(ip: str, community: str, oid: str, mp_model: int) -> Optional[str]:
     try:
         iterator = getCmd(
             SnmpEngine(),
-            CommunityData(community, mpModel=1),
+            CommunityData(community, mpModel=mp_model),
             _legacy_transport(ip),
             ContextData(),
             ObjectType(ObjectIdentity(oid)),
@@ -104,13 +112,13 @@ def _legacy_get(ip: str, community: str, oid: str) -> Optional[str]:
     return None
 
 
-def _legacy_walk(ip: str, community: str, oid_prefix: str) -> List[Tuple[str, str]]:
+def _legacy_walk(ip: str, community: str, oid_prefix: str, mp_model: int) -> List[Tuple[str, str]]:
     rows: List[Tuple[str, str]] = []
 
     try:
         iterator = nextCmd(
             SnmpEngine(),
-            CommunityData(community, mpModel=1),
+            CommunityData(community, mpModel=mp_model),
             _legacy_transport(ip),
             ContextData(),
             ObjectType(ObjectIdentity(oid_prefix)),
@@ -129,13 +137,13 @@ def _legacy_walk(ip: str, community: str, oid_prefix: str) -> List[Tuple[str, st
     return rows
 
 
-async def _async_get(ip: str, community: str, oid: str) -> Optional[str]:
+async def _async_get(ip: str, community: str, oid: str, mp_model: int) -> Optional[str]:
     engine = AsyncSnmpEngine()
 
     try:
         error_indication, error_status, error_index, var_binds = await async_get_cmd(
             engine,
-            AsyncCommunityData(community, mpModel=1),
+            AsyncCommunityData(community, mpModel=mp_model),
             await AsyncUdpTransportTarget.create((ip, SNMP_PORT), timeout=TIMEOUT_SECONDS, retries=RETRIES),
             AsyncContextData(),
             AsyncObjectType(AsyncObjectIdentity(oid)),
@@ -158,7 +166,7 @@ async def _async_get(ip: str, community: str, oid: str) -> Optional[str]:
     return None
 
 
-async def _async_walk(ip: str, community: str, oid_prefix: str) -> List[Tuple[str, str]]:
+async def _async_walk(ip: str, community: str, oid_prefix: str, mp_model: int) -> List[Tuple[str, str]]:
     rows: List[Tuple[str, str]] = []
     engine = AsyncSnmpEngine()
 
@@ -166,7 +174,7 @@ async def _async_walk(ip: str, community: str, oid_prefix: str) -> List[Tuple[st
         transport = await AsyncUdpTransportTarget.create((ip, SNMP_PORT), timeout=TIMEOUT_SECONDS, retries=RETRIES)
         iterator = async_walk_cmd(
             engine,
-            AsyncCommunityData(community, mpModel=1),
+            AsyncCommunityData(community, mpModel=mp_model),
             transport,
             AsyncContextData(),
             AsyncObjectType(AsyncObjectIdentity(oid_prefix)),
@@ -192,25 +200,41 @@ async def _async_walk(ip: str, community: str, oid_prefix: str) -> List[Tuple[st
 
 def get(ip: str, community: str, oid: str) -> Optional[str]:
     if _legacy_ready():
-        return _legacy_get(ip, community, oid)
+        for mp_model in _mp_models():
+            value = _legacy_get(ip, community, oid, mp_model)
+            if value is not None:
+                return value
+        return None
 
     if _async_ready():
-        try:
-            return asyncio.run(_async_get(ip, community, oid))
-        except Exception:
-            return None
+        for mp_model in _mp_models():
+            try:
+                value = asyncio.run(_async_get(ip, community, oid, mp_model))
+            except Exception:
+                value = None
+            if value is not None:
+                return value
+        return None
 
     return None
 
 
 def walk(ip: str, community: str, oid_prefix: str) -> List[Tuple[str, str]]:
     if _legacy_ready():
-        return _legacy_walk(ip, community, oid_prefix)
+        for mp_model in _mp_models():
+            rows = _legacy_walk(ip, community, oid_prefix, mp_model)
+            if rows:
+                return rows
+        return []
 
     if _async_ready():
-        try:
-            return asyncio.run(_async_walk(ip, community, oid_prefix))
-        except Exception:
-            return []
+        for mp_model in _mp_models():
+            try:
+                rows = asyncio.run(_async_walk(ip, community, oid_prefix, mp_model))
+            except Exception:
+                rows = []
+            if rows:
+                return rows
+        return []
 
     return []

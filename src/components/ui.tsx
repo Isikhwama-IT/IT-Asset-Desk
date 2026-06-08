@@ -38,10 +38,7 @@ export function Modal({ title, subtitle, onClose, children, width = "max-w-lg" }
 
   // Portal renders directly on document.body — escapes ALL parent stacking contexts
   return createPortal(
-    <div
-      className="fixed z-[9999] overflow-y-auto"
-      style={{ inset: 0, paddingLeft: "220px" }}
-    >
+    <div className="fixed inset-0 z-[9999] overflow-y-auto px-4 py-6 sm:px-6 sm:py-8">
       {/* Backdrop */}
       <div
         className="fixed bg-stone-900/50 backdrop-blur-[2px]"
@@ -50,9 +47,9 @@ export function Modal({ title, subtitle, onClose, children, width = "max-w-lg" }
       />
 
       {/* Scroll container — centres panel, allows tall modals to scroll */}
-      <div className="flex items-center justify-center min-h-full p-6">
+      <div className="flex items-center justify-center min-h-full">
         {/* Panel */}
-        <div className={cn("relative bg-white rounded-2xl shadow-2xl w-full flex flex-col", width)}>
+        <div className={cn("relative bg-white rounded-2xl shadow-2xl w-full max-w-full sm:mx-auto flex flex-col", width)}>
           {/* Header */}
           <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-stone-100 flex-shrink-0">
             <div>
@@ -213,7 +210,7 @@ export function ErrorBanner({ message }: { message: string }) {
 // ─── 2-col grid helper ────────────────────────────────────────────────────────
 
 export function FormGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-4">{children}</div>;
+  return <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>;
 }
 
 export function FormStack({ children }: { children: React.ReactNode }) {

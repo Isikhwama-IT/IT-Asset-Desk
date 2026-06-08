@@ -61,7 +61,7 @@ export default function ExternalContactsView({ addTrigger, onAdded, viewMode = "
   return (
     <div>
       {viewMode === "cards" ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {contacts.map((c) => (
             <ExternalContactCard
               key={c.id}

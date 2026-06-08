@@ -4,7 +4,7 @@ function Skeleton({ className }: { className?: string }) {
 
 export default function AssetDetailLoading() {
   return (
-    <div className="p-8 max-w-4xl mx-auto">
+    <div className="p-4 sm:p-8 max-w-4xl mx-auto">
       {/* Back link */}
       <Skeleton className="h-4 w-24 mb-6" />
 
@@ -26,7 +26,7 @@ export default function AssetDetailLoading() {
       </div>
 
       {/* Two-col details */}
-      <div className="grid grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {[...Array(2)].map((_, i) => (
           <div key={i} className="bg-white rounded-xl border border-stone-200 p-5">
             <Skeleton className="h-4 w-28 mb-4" />

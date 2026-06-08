@@ -66,11 +66,28 @@ Before polling all printers, run discovery against one printer:
 python printer_discovery.py
 ```
 
-The target IP is set at the top of `printer_discovery.py`:
+The default target IP is set at the top of `printer_discovery.py`:
 
 ```python
 DISCOVERY_IP = "192.168.20.250"
 ```
+
+You can also pass any printer IP directly:
+
+```powershell
+python printer_discovery.py --ip 192.168.21.15
+```
+
+For the app-driven flow, the web app reads the selected printer from the `printers` table and passes that printer's `ip_address` into `printer_poller.py`. Open the printer detail page and click **Poll SNMP**.
+
+If a printer is reachable by ping but returns `No SNMP response`, check the printer admin settings for:
+
+- SNMP enabled
+- community string set to `public` or the same value as `SNMP_COMMUNITY`
+- SNMP v1/v2c allowed
+- UDP port `161` allowed from this Windows machine
+
+You can set `SNMP_VERSION=1`, `SNMP_VERSION=2c`, or `SNMP_VERSION=auto` in `.env`.
 
 The discovery report prints:
 

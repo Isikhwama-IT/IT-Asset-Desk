@@ -34,19 +34,19 @@ async function getDashboardData(): Promise<DashboardData> {
   ] = await Promise.all([
     supabase
       .from("tasks")
-      .select("id, task_code, title, status, priority, category, due_date, status_changed_at, created_at, task_updates(body, created_at)")
+      .select("id, task_code, title, status, status_reason, priority, category, source, due_date, status_changed_at, created_at, updated_at, archived_at, task_updates(body, created_at)")
       .is("archived_at", null)
       .order("created_at", { ascending: false }),
 
     supabase
       .from("task_follow_ups")
-      .select("id, task_id, due_date, note, task:tasks(id, task_code, title), contact:contacts(id, full_name), external_contact:external_contacts(id, name)")
+      .select("id, task_id, due_date, note, task:tasks(id, task_code, title, status, status_reason, priority, category, source, due_date, status_changed_at, created_at, updated_at, archived_at, task_updates(body, created_at)), contact:contacts(id, full_name), external_contact:external_contacts(id, name)")
       .eq("is_done", false)
       .order("due_date"),
 
     supabase
       .from("task_updates")
-      .select("id, body, created_at, task:tasks(id, task_code, title, status)")
+      .select("id, body, created_at, task:tasks(id, task_code, title, status, status_reason, priority, category, source, due_date, status_changed_at, created_at, updated_at, archived_at, task_updates(body, created_at))")
       .order("created_at", { ascending: false })
       .limit(20),
   ]);
@@ -273,7 +273,7 @@ export default async function TasksPage({
   const calendarData = isCalendar ? (viewData as CalendarData) : undefined;
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <span className="w-1 h-3.5 rounded-full inline-block" style={{ background: "#C04F28" }} />

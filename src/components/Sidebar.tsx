@@ -24,14 +24,14 @@ import { useAuth } from "@/context/AuthContext";
 import { signOut } from "@/app/login/actions";
 
 const nav = [
-  { href: "/dashboard", label: "Dashboard",  icon: LayoutDashboard, adminOnly: false },
-  { href: "/assets",    label: "Assets",      icon: Monitor,         adminOnly: false },
-  { href: "/printers",  label: "Printers",    icon: Printer,         adminOnly: false },
-  { href: "/tasks",     label: "Tasks",        icon: ListTodo,        adminOnly: false },
-  { href: "/people",    label: "Contacts",     icon: Users,           adminOnly: false },
-  { href: "/requests",  label: "Requests",     icon: Inbox,           adminOnly: true  },
-  { href: "/audit",     label: "Audit Log",    icon: ClipboardList,   adminOnly: true  },
-  { href: "/settings",  label: "Settings",     icon: Settings,        adminOnly: true  },
+  { href: "/",          label: "Home",       icon: LayoutDashboard, adminOnly: false, exact: true  },
+  { href: "/assets",    label: "Assets",     icon: Monitor,         adminOnly: false, exact: false },
+  { href: "/printers",  label: "Printers",   icon: Printer,         adminOnly: false, exact: false },
+  { href: "/tasks",     label: "Tasks",      icon: ListTodo,        adminOnly: false, exact: false },
+  { href: "/people",    label: "Contacts",   icon: Users,           adminOnly: false, exact: false },
+  { href: "/requests",  label: "Requests",   icon: Inbox,           adminOnly: true,  exact: false },
+  { href: "/audit",     label: "Audit Log",  icon: ClipboardList,   adminOnly: true,  exact: false },
+  { href: "/settings",  label: "Settings",   icon: Settings,        adminOnly: true,  exact: false },
 ];
 
 interface SidebarProps {
@@ -47,7 +47,7 @@ export default function Sidebar({ open = true, onClose }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 h-screen w-[220px] flex flex-col z-40 transition-transform duration-200",
+        "fixed inset-y-0 left-0 w-[220px] flex flex-col z-40 transition-transform duration-200",
         "md:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}
@@ -80,8 +80,8 @@ export default function Sidebar({ open = true, onClose }: SidebarProps) {
         <p className="px-2 mb-3" style={{ fontSize: 10, fontWeight: 500, color: "#859474", textTransform: "uppercase", letterSpacing: "0.1em" }}>
           Navigation
         </p>
-        {nav.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + "/");
+        {nav.filter(({ adminOnly }) => !adminOnly || isAdmin).map(({ href, label, icon: Icon, exact }) => {
+          const active = exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}

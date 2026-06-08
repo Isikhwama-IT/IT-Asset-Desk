@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, Trash2 } from "lucide-react";
 import {
   Modal,
   FormField,
@@ -19,6 +20,7 @@ import {
 import {
   createPrinter,
   updatePrinter,
+  syncPrinterTrays,
   createPrinterTonerOrder,
   updatePrinterTonerOrder,
   createPrinterPaperOrder,
@@ -26,6 +28,7 @@ import {
   createPrinterTicket,
   updatePrinterTicket,
   createPrinterMeterReading,
+  type TrayInput,
 } from "@/lib/actions";
 import {
   CONSUMABLE_STATUSES,
@@ -34,11 +37,13 @@ import {
   TICKET_PRIORITIES,
   TICKET_STATUSES,
 } from "@/lib/printers";
+import { PAPER_SIZES } from "@/lib/printer-capabilities";
 import type {
   Contact,
   Department,
   Location,
   PrinterPaperOrder,
+  PrinterTray,
   PrinterTicket,
   PrinterTonerOrder,
   PrinterWithRelations,
@@ -49,6 +54,198 @@ type LookupProps = {
   locations: Location[];
   contacts: Contact[];
 };
+
+// ── Capability helpers ────────────────────────────────────────────────────────
+
+type CapForm = {
+  is_colour: boolean;
+  supports_a3: boolean;
+  toner_config: "separate" | "all-in-one";
+  has_developer_units: boolean;
+  has_waste_box: boolean;
+  has_fuser_tracking: boolean;
+  has_drum_tracking: boolean;
+  is_duplex: boolean;
+  is_scan_capable: boolean;
+  is_fax_capable: boolean;
+};
+
+const defaultCap = (): CapForm => ({
+  is_colour: false, supports_a3: false, toner_config: "separate",
+  has_developer_units: false, has_waste_box: false,
+  has_fuser_tracking: false, has_drum_tracking: false,
+  is_duplex: false, is_scan_capable: false, is_fax_capable: false,
+});
+
+type TrayFormItem = {
+  key: string;
+  id?: string;
+  tray_name: string;
+  paper_size: string;
+  capacity_reams: string;
+  sort_order: number;
+};
+
+function Toggle({
+  label, checked, onChange, description,
+}: {
+  label: string; checked: boolean; onChange: (v: boolean) => void; description?: string;
+}) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer select-none">
+      <div
+        className="relative w-9 h-5 rounded-full flex-shrink-0 mt-0.5 transition-colors"
+        style={{ background: checked ? "#415445" : "#e7e5e4" }}
+        onClick={() => onChange(!checked)}
+      >
+        <span
+          className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform"
+          style={{ transform: checked ? "translateX(16px)" : "translateX(2px)" }}
+        />
+      </div>
+      <div>
+        <p className="text-[12.5px] text-stone-700 leading-snug">{label}</p>
+        {description && <p className="text-[11px] text-stone-400">{description}</p>}
+      </div>
+    </label>
+  );
+}
+
+function TrayList({
+  trays, onChange,
+}: {
+  trays: TrayFormItem[];
+  onChange: (trays: TrayFormItem[]) => void;
+}) {
+  function add() {
+    onChange([
+      ...trays,
+      {
+        key: crypto.randomUUID(),
+        tray_name: `Tray ${trays.length + 1}`,
+        paper_size: "A4",
+        capacity_reams: "",
+        sort_order: trays.length + 1,
+      },
+    ]);
+  }
+
+  function remove(key: string) {
+    onChange(trays.filter((t) => t.key !== key));
+  }
+
+  function update(key: string, field: keyof TrayFormItem, value: string | number) {
+    onChange(trays.map((t) => (t.key === key ? { ...t, [field]: value } : t)));
+  }
+
+  const inp = "text-[12px] border border-stone-200 rounded-lg px-2.5 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-stone-300";
+  const sel = inp + " appearance-none bg-white";
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-stone-500">Trays</p>
+        <button type="button" onClick={add} className="flex items-center gap-1 text-[11px] text-stone-500 hover:text-stone-700 border border-stone-200 px-2 py-1 rounded-lg hover:bg-stone-50 transition-colors">
+          <Plus size={11} /> Add tray
+        </button>
+      </div>
+
+      {trays.length === 0 && (
+        <p className="text-[11.5px] text-stone-400 py-2 text-center border border-dashed border-stone-200 rounded-lg">No trays — add at least one</p>
+      )}
+
+      <div className="space-y-2">
+        {trays.map((tray, i) => (
+          <div key={tray.key} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-end">
+            <div>
+              {i === 0 && <p className="text-[10px] text-stone-400 mb-1">Name</p>}
+              <input className={inp} value={tray.tray_name} onChange={(e) => update(tray.key, "tray_name", e.target.value)} placeholder="e.g. Tray 1" />
+            </div>
+            <div className="w-24">
+              {i === 0 && <p className="text-[10px] text-stone-400 mb-1">Size</p>}
+              <select className={sel} value={tray.paper_size} onChange={(e) => update(tray.key, "paper_size", e.target.value)}>
+                {PAPER_SIZES.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="w-20">
+              {i === 0 && <p className="text-[10px] text-stone-400 mb-1">Reams cap.</p>}
+              <input className={inp} type="number" min={0} value={tray.capacity_reams} onChange={(e) => update(tray.key, "capacity_reams", e.target.value)} placeholder="—" />
+            </div>
+            <div className="pb-0.5">
+              {i === 0 && <div className="mb-1 h-4" />}
+              <button type="button" onClick={() => remove(tray.key)} className="w-7 h-7 rounded-lg flex items-center justify-center text-stone-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CapabilitiesSection({
+  cap, setCap, trays, setTrays,
+}: {
+  cap: CapForm;
+  setCap: (c: CapForm) => void;
+  trays: TrayFormItem[];
+  setTrays: (t: TrayFormItem[]) => void;
+}) {
+  const toggle = (k: keyof CapForm, v: boolean) => setCap({ ...cap, [k]: v });
+
+  return (
+    <div className="border border-stone-200 rounded-xl overflow-hidden">
+      <div className="px-4 py-2.5 bg-stone-50 border-b border-stone-200">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-stone-500">Capabilities</p>
+      </div>
+      <div className="px-4 py-4 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Toggle label="Colour printing" checked={cap.is_colour} onChange={(v) => toggle("is_colour", v)} />
+          <Toggle label="Supports A3" checked={cap.supports_a3} onChange={(v) => toggle("supports_a3", v)} />
+          <Toggle label="Duplex (double-sided)" checked={cap.is_duplex} onChange={(v) => toggle("is_duplex", v)} />
+          <Toggle label="Scan capable" checked={cap.is_scan_capable} onChange={(v) => toggle("is_scan_capable", v)} />
+          <Toggle label="Fax capable" checked={cap.is_fax_capable} onChange={(v) => toggle("is_fax_capable", v)} />
+        </div>
+
+        {cap.is_colour && (
+          <div>
+            <p className="text-[10.5px] text-stone-400 mb-1.5 uppercase tracking-wider">Toner configuration</p>
+            <div className="flex gap-3">
+              {(["separate", "all-in-one"] as const).map((opt) => (
+                <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={cap.toner_config === opt}
+                    onChange={() => setCap({ ...cap, toner_config: opt })}
+                    className="accent-stone-700"
+                  />
+                  <span className="text-[12.5px] text-stone-700">
+                    {opt === "separate" ? "Separate B/C/M/Y" : "All-in-one cartridge"}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-stone-100 pt-3">
+          <p className="text-[10.5px] text-stone-400 mb-2 uppercase tracking-wider">Consumable tracking</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Toggle label="Developer units" checked={cap.has_developer_units} onChange={(v) => toggle("has_developer_units", v)} />
+            <Toggle label="Waste toner box" checked={cap.has_waste_box} onChange={(v) => toggle("has_waste_box", v)} />
+            <Toggle label="Fuser unit tracking" checked={cap.has_fuser_tracking} onChange={(v) => toggle("has_fuser_tracking", v)} />
+            <Toggle label="Drum unit tracking" checked={cap.has_drum_tracking} onChange={(v) => toggle("has_drum_tracking", v)} />
+          </div>
+        </div>
+
+        <div className="border-t border-stone-100 pt-3">
+          <TrayList trays={trays} onChange={setTrays} />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -82,6 +279,11 @@ export function AddPrinterModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [cap, setCap] = useState<CapForm>(defaultCap());
+  const [snmpEnabled, setSnmpEnabled] = useState(true);
+  const [trays, setTrays] = useState<TrayFormItem[]>([
+    { key: "default-1", tray_name: "Tray 1", paper_size: "A4", capacity_reams: "", sort_order: 1 },
+  ]);
   const [form, setForm] = useState({
     name: "",
     serial_number: "",
@@ -112,6 +314,7 @@ export function AddPrinterModal({
 
   async function handleSubmit() {
     if (!form.name.trim()) return setError("Printer name is required.");
+    if (trays.length === 0) return setError("At least one tray is required.");
     const meterReading = form.last_meter_reading
       ? asNonNegativeInteger(form.last_meter_reading, "Meter reading")
       : null;
@@ -120,20 +323,39 @@ export function AddPrinterModal({
     setLoading(true);
     const res = await createPrinter({
       ...form,
+      ...cap,
+      snmp_enabled: snmpEnabled,
       last_meter_reading: meterReading,
       last_meter_reading_at: form.last_meter_reading_at || undefined,
     });
-    setLoading(false);
     if (res?.error) {
+      setLoading(false);
       setConfirming(false);
       return setError(res.error);
     }
+    // Sync trays after printer created
+    if (res?.id) {
+      const trayRes = await syncPrinterTrays(
+        res.id,
+        trays.map((t, i) => ({
+          tray_name: t.tray_name,
+          paper_size: t.paper_size,
+          capacity_reams: t.capacity_reams ? Number(t.capacity_reams) : null,
+          sort_order: i + 1,
+        }))
+      );
+      if (trayRes?.error) {
+        setLoading(false);
+        return setError(trayRes.error);
+      }
+    }
+    setLoading(false);
     router.refresh();
     onClose();
   }
 
   return (
-    <Modal title="Add Printer" subtitle="Register printer details, consumables, supplier and network info" onClose={onClose} width="max-w-2xl">
+    <Modal title="Add Printer" subtitle="Register printer details, consumables, supplier and network info" onClose={onClose} width="max-w-3xl">
       <FormStack>
         {error && <ErrorBanner message={error} />}
 
@@ -207,19 +429,6 @@ export function AddPrinterModal({
         </FormGrid>
 
         <FormGrid>
-          <FormField label="Toner Status">
-            <Select value={form.toner_status} onChange={(e) => set("toner_status", e.target.value)}>
-              {CONSUMABLE_STATUSES.map((status) => <option key={status}>{status}</option>)}
-            </Select>
-          </FormField>
-          <FormField label="Paper Status">
-            <Select value={form.paper_status} onChange={(e) => set("paper_status", e.target.value)}>
-              {CONSUMABLE_STATUSES.map((status) => <option key={status}>{status}</option>)}
-            </Select>
-          </FormField>
-        </FormGrid>
-
-        <FormGrid>
           <FormField label="Meter Reading">
             <Input type="number" min={0} value={form.last_meter_reading} onChange={(e) => set("last_meter_reading", e.target.value)} />
           </FormField>
@@ -235,6 +444,21 @@ export function AddPrinterModal({
         <FormField label="Notes">
           <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} />
         </FormField>
+
+        <CapabilitiesSection cap={cap} setCap={setCap} trays={trays} setTrays={setTrays} />
+
+        <div className="border border-stone-100 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-0.5 h-3 rounded-full" style={{ background: "#C04F28" }} />
+            <p className="text-[10.5px] font-medium uppercase tracking-wider" style={{ color: "#859474" }}>Monitoring</p>
+          </div>
+          <Toggle
+            label="Enable automated monitoring (SNMP)"
+            description="When enabled this printer is included in the hourly poll."
+            checked={snmpEnabled}
+            onChange={setSnmpEnabled}
+          />
+        </div>
 
         <ModalFooter>
           <BtnSecondary onClick={onClose}>Cancel</BtnSecondary>
@@ -259,16 +483,41 @@ export function AddPrinterModal({
 export function EditPrinterModal({
   printer,
   lookups,
+  initialTrays = [],
   onClose,
 }: {
   printer: PrinterWithRelations;
   lookups: LookupProps;
+  initialTrays?: PrinterTray[];
   onClose: () => void;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [cap, setCap] = useState<CapForm>({
+    is_colour: printer.is_colour ?? false,
+    supports_a3: printer.supports_a3 ?? false,
+    toner_config: (printer.toner_config as "separate" | "all-in-one") ?? "separate",
+    has_developer_units: printer.has_developer_units ?? false,
+    has_waste_box: printer.has_waste_box ?? false,
+    has_fuser_tracking: printer.has_fuser_tracking ?? false,
+    has_drum_tracking: printer.has_drum_tracking ?? false,
+    is_duplex: printer.is_duplex ?? false,
+    is_scan_capable: printer.is_scan_capable ?? false,
+    is_fax_capable: printer.is_fax_capable ?? false,
+  });
+  const [snmpEnabled, setSnmpEnabled] = useState(printer.snmp_enabled ?? true);
+  const [trays, setTrays] = useState<TrayFormItem[]>(
+    initialTrays.filter((t) => t.is_active).sort((a, b) => a.sort_order - b.sort_order).map((t) => ({
+      key: t.id,
+      id: t.id,
+      tray_name: t.tray_name,
+      paper_size: t.paper_size,
+      capacity_reams: t.capacity_reams?.toString() ?? "",
+      sort_order: t.sort_order,
+    }))
+  );
   const [form, setForm] = useState({
     name: printer.name ?? "",
     serial_number: printer.serial_number ?? "",
@@ -281,8 +530,6 @@ export function EditPrinterModal({
     location_id: printer.location_id ?? "",
     primary_contact_id: printer.primary_contact_id ?? "",
     status: printer.status ?? "Active",
-    toner_status: printer.toner_status ?? "OK",
-    paper_status: printer.paper_status ?? "OK",
     toner_model: printer.toner_model ?? "",
     paper_size: printer.paper_size ?? "",
     last_meter_reading: printer.last_meter_reading?.toString() ?? "",
@@ -299,6 +546,7 @@ export function EditPrinterModal({
 
   async function handleSubmit() {
     if (!form.name.trim()) return setError("Printer name is required.");
+    if (trays.length === 0) return setError("At least one tray is required.");
     const meterReading = form.last_meter_reading
       ? asNonNegativeInteger(form.last_meter_reading, "Meter reading")
       : null;
@@ -307,9 +555,27 @@ export function EditPrinterModal({
     setLoading(true);
     const res = await updatePrinter(printer.id, {
       ...form,
+      ...cap,
+      snmp_enabled: snmpEnabled,
       last_meter_reading: meterReading,
       last_meter_reading_at: form.last_meter_reading_at || undefined,
     });
+    if (!res?.error) {
+      const trayRes = await syncPrinterTrays(
+        printer.id,
+        trays.map((t, i) => ({
+          id: t.id,
+          tray_name: t.tray_name,
+          paper_size: t.paper_size,
+          capacity_reams: t.capacity_reams ? Number(t.capacity_reams) : null,
+          sort_order: i + 1,
+        }))
+      );
+      if (trayRes?.error) {
+        setLoading(false);
+        return setError(trayRes.error);
+      }
+    }
     setLoading(false);
     if (res?.error) {
       setConfirming(false);
@@ -320,7 +586,7 @@ export function EditPrinterModal({
   }
 
   return (
-    <Modal title="Edit Printer" subtitle={`#${printer.printer_code} - ${printer.name}`} onClose={onClose} width="max-w-2xl">
+    <Modal title="Edit Printer" subtitle={`#${printer.printer_code} - ${printer.name}`} onClose={onClose} width="max-w-3xl">
       <FormStack>
         {error && <ErrorBanner message={error} />}
 
@@ -394,19 +660,6 @@ export function EditPrinterModal({
         </FormGrid>
 
         <FormGrid>
-          <FormField label="Toner Status">
-            <Select value={form.toner_status} onChange={(e) => set("toner_status", e.target.value)}>
-              {CONSUMABLE_STATUSES.map((status) => <option key={status}>{status}</option>)}
-            </Select>
-          </FormField>
-          <FormField label="Paper Status">
-            <Select value={form.paper_status} onChange={(e) => set("paper_status", e.target.value)}>
-              {CONSUMABLE_STATUSES.map((status) => <option key={status}>{status}</option>)}
-            </Select>
-          </FormField>
-        </FormGrid>
-
-        <FormGrid>
           <FormField label="Meter Reading">
             <Input type="number" min={0} value={form.last_meter_reading} onChange={(e) => set("last_meter_reading", e.target.value)} />
           </FormField>
@@ -422,6 +675,21 @@ export function EditPrinterModal({
         <FormField label="Notes">
           <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} />
         </FormField>
+
+        <CapabilitiesSection cap={cap} setCap={setCap} trays={trays} setTrays={setTrays} />
+
+        <div className="border border-stone-100 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="w-0.5 h-3 rounded-full" style={{ background: "#C04F28" }} />
+            <p className="text-[10.5px] font-medium uppercase tracking-wider" style={{ color: "#859474" }}>Monitoring</p>
+          </div>
+          <Toggle
+            label="Enable automated monitoring (SNMP)"
+            description="When enabled this printer is included in the hourly poll."
+            checked={snmpEnabled}
+            onChange={setSnmpEnabled}
+          />
+        </div>
 
         <ModalFooter>
           <BtnSecondary onClick={onClose}>Cancel</BtnSecondary>

@@ -1,10 +1,14 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import AssetsClientFilters from "@/components/AssetsClientFilters";
+import AssetsDashboard from "@/components/AssetsDashboard";
+import Link from "next/link";
+import { LayoutDashboard, List } from "lucide-react";
 import type { AssetWithRelations } from "@/types/database";
 
 const PAGE_SIZE = 50;
 
 interface SearchParams {
+  view?: string;
   page?: string;
   q?: string;
   status?: string;
@@ -13,6 +17,14 @@ interface SearchParams {
   site?: string;
   missing?: string;
   contact?: string;
+}
+
+async function getAssetCount() {
+  const supabase = await createSupabaseServerClient();
+  const { count } = await supabase
+    .from("assets")
+    .select("id", { count: "exact", head: true });
+  return count ?? 0;
 }
 
 async function getAssetsData(params: SearchParams) {
@@ -104,21 +116,16 @@ export default async function AssetsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const params = await searchParams;
-  const {
-    assets,
-    total,
-    page,
-    pageSize,
-    statuses,
-    categories,
-    departments,
-    locations,
-    jobLevels,
-    contacts,
-  } = await getAssetsData(params);
+  const view = params.view === "list" ? "list" : "dashboard";
+  const [assetCount, listData] = await Promise.all([
+    getAssetCount(),
+    view === "list" ? getAssetsData(params) : Promise.resolve(null),
+  ]);
+
+  const headerCount = view === "list" && listData ? listData.total : assetCount;
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
           <span className="w-1 h-3.5 rounded-full inline-block" style={{ background: "#C04F28" }} />
@@ -130,23 +137,52 @@ export default async function AssetsPage({
         >
           Assets
           <span className="ml-2 text-lg text-stone-400 font-normal">
-            {total}
+            {headerCount}
           </span>
         </h1>
       </div>
 
-      <AssetsClientFilters
-        assets={assets}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-        statuses={statuses}
-        categories={categories}
-        departments={departments}
-        locations={locations}
-        jobLevels={jobLevels}
-        contacts={contacts}
-      />
+      <div className="flex items-center bg-stone-100 rounded-lg p-0.5 gap-px w-fit mb-5">
+        <Link
+          href="/assets?view=dashboard"
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+            view === "dashboard"
+              ? "bg-white text-stone-800 shadow-sm"
+              : "text-stone-500 hover:text-stone-700"
+          }`}
+        >
+          <LayoutDashboard size={12} />
+          Dashboard
+        </Link>
+        <Link
+          href="/assets?view=list"
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+            view === "list"
+              ? "bg-white text-stone-800 shadow-sm"
+              : "text-stone-500 hover:text-stone-700"
+          }`}
+        >
+          <List size={12} />
+          List
+        </Link>
+      </div>
+
+      {view === "dashboard" ? (
+        <AssetsDashboard />
+      ) : listData ? (
+        <AssetsClientFilters
+          assets={listData.assets}
+          total={listData.total}
+          page={listData.page}
+          pageSize={listData.pageSize}
+          statuses={listData.statuses}
+          categories={listData.categories}
+          departments={listData.departments}
+          locations={listData.locations}
+          jobLevels={listData.jobLevels}
+          contacts={listData.contacts}
+        />
+      ) : null}
     </div>
   );
 }

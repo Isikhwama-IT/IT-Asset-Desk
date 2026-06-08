@@ -62,7 +62,7 @@ export default function RequestPage() {
 
         <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-sm">
           {submitted ? (
-            <div className="px-8 py-12 text-center">
+            <div className="px-6 py-10 sm:px-8 sm:py-12 text-center">
               <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle size={22} className="text-emerald-600" />
               </div>

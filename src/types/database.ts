@@ -110,6 +110,28 @@ export interface Database {
           paper_size: string | null;
           last_meter_reading: number | null;
           last_meter_reading_at: string | null;
+          black_toner_stock: number;
+          colour_toner_stock: number;
+          cyan_toner_stock: number;
+          magenta_toner_stock: number;
+          yellow_toner_stock: number;
+          paper_boxes_on_hand: number;
+          developer_unit_stock: number;
+          fuser_unit_stock: number;
+          waste_box_stock: number;
+          drum_unit_stock: number;
+          is_colour: boolean;
+          supports_a3: boolean;
+          toner_config: string;
+          has_developer_units: boolean;
+          has_waste_box: boolean;
+          has_fuser_tracking: boolean;
+          has_drum_tracking: boolean;
+          is_duplex: boolean;
+          is_scan_capable: boolean;
+          is_fax_capable: boolean;
+          last_snmp_polled_at: string | null;
+          snmp_enabled: boolean;
           warranty_end_date: string | null;
           notes: string | null;
           created_at: string;
@@ -136,6 +158,28 @@ export interface Database {
           paper_size?: string | null;
           last_meter_reading?: number | null;
           last_meter_reading_at?: string | null;
+          black_toner_stock?: number;
+          colour_toner_stock?: number;
+          cyan_toner_stock?: number;
+          magenta_toner_stock?: number;
+          yellow_toner_stock?: number;
+          paper_boxes_on_hand?: number;
+          developer_unit_stock?: number;
+          fuser_unit_stock?: number;
+          waste_box_stock?: number;
+          drum_unit_stock?: number;
+          is_colour?: boolean;
+          supports_a3?: boolean;
+          toner_config?: string;
+          has_developer_units?: boolean;
+          has_waste_box?: boolean;
+          has_fuser_tracking?: boolean;
+          has_drum_tracking?: boolean;
+          is_duplex?: boolean;
+          is_scan_capable?: boolean;
+          is_fax_capable?: boolean;
+          last_snmp_polled_at?: string | null;
+          snmp_enabled?: boolean;
           warranty_end_date?: string | null;
           notes?: string | null;
           created_at?: string;
@@ -162,6 +206,28 @@ export interface Database {
           paper_size?: string | null;
           last_meter_reading?: number | null;
           last_meter_reading_at?: string | null;
+          black_toner_stock?: number;
+          colour_toner_stock?: number;
+          cyan_toner_stock?: number;
+          magenta_toner_stock?: number;
+          yellow_toner_stock?: number;
+          paper_boxes_on_hand?: number;
+          developer_unit_stock?: number;
+          fuser_unit_stock?: number;
+          waste_box_stock?: number;
+          drum_unit_stock?: number;
+          is_colour?: boolean;
+          supports_a3?: boolean;
+          toner_config?: string;
+          has_developer_units?: boolean;
+          has_waste_box?: boolean;
+          has_fuser_tracking?: boolean;
+          has_drum_tracking?: boolean;
+          is_duplex?: boolean;
+          is_scan_capable?: boolean;
+          is_fax_capable?: boolean;
+          last_snmp_polled_at?: string | null;
+          snmp_enabled?: boolean;
           warranty_end_date?: string | null;
           notes?: string | null;
           updated_at?: string;
@@ -348,6 +414,81 @@ export interface Database {
           reading_at?: string;
           captured_by_contact_id?: string | null;
           notes?: string | null;
+        };
+        Relationships: [];
+      };
+      printer_snmp_readings: {
+        Row: {
+          id: string;
+          printer_id: string;
+          polled_at: string;
+          is_online: boolean;
+          printer_status: string | null;
+          error_description: string | null;
+          total_pages: number | null;
+          colour_pages: number | null;
+          mono_pages: number | null;
+          black_toner_pct: number | null;
+          cyan_toner_pct: number | null;
+          magenta_toner_pct: number | null;
+          yellow_toner_pct: number | null;
+          black_developer_pct: number | null;
+          cyan_developer_pct: number | null;
+          magenta_developer_pct: number | null;
+          yellow_developer_pct: number | null;
+          fuser_pct: number | null;
+          waste_box_pct: number | null;
+          drum_pct: number | null;
+          raw_data: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          printer_id: string;
+          polled_at?: string;
+          is_online?: boolean;
+          printer_status?: string | null;
+          error_description?: string | null;
+          total_pages?: number | null;
+          colour_pages?: number | null;
+          mono_pages?: number | null;
+          black_toner_pct?: number | null;
+          cyan_toner_pct?: number | null;
+          magenta_toner_pct?: number | null;
+          yellow_toner_pct?: number | null;
+          black_developer_pct?: number | null;
+          cyan_developer_pct?: number | null;
+          magenta_developer_pct?: number | null;
+          yellow_developer_pct?: number | null;
+          fuser_pct?: number | null;
+          waste_box_pct?: number | null;
+          drum_pct?: number | null;
+          raw_data?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          printer_id?: string;
+          polled_at?: string;
+          is_online?: boolean;
+          printer_status?: string | null;
+          error_description?: string | null;
+          total_pages?: number | null;
+          colour_pages?: number | null;
+          mono_pages?: number | null;
+          black_toner_pct?: number | null;
+          cyan_toner_pct?: number | null;
+          magenta_toner_pct?: number | null;
+          yellow_toner_pct?: number | null;
+          black_developer_pct?: number | null;
+          cyan_developer_pct?: number | null;
+          magenta_developer_pct?: number | null;
+          yellow_developer_pct?: number | null;
+          fuser_pct?: number | null;
+          waste_box_pct?: number | null;
+          drum_pct?: number | null;
+          raw_data?: Json | null;
+          created_at?: string;
         };
         Relationships: [];
       };
@@ -570,6 +711,195 @@ export interface Database {
         };
         Relationships: [];
       };
+      printer_trays: {
+        Row: {
+          id: string;
+          printer_id: string;
+          tray_name: string;
+          paper_size: string;
+          capacity_reams: number | null;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          printer_id: string;
+          tray_name: string;
+          paper_size: string;
+          capacity_reams?: number | null;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          printer_id?: string;
+          tray_name?: string;
+          paper_size?: string;
+          capacity_reams?: number | null;
+          is_active?: boolean;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      location_paper_stock: {
+        Row: {
+          id: string;
+          location_id: string;
+          paper_size: string;
+          boxes_on_hand: number;
+          reams_on_hand: number;
+          last_restocked_at: string | null;
+          last_updated_by_contact_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          location_id: string;
+          paper_size: string;
+          boxes_on_hand?: number;
+          reams_on_hand?: number;
+          last_restocked_at?: string | null;
+          last_updated_by_contact_id?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          paper_size?: string;
+          boxes_on_hand?: number;
+          reams_on_hand?: number;
+          last_restocked_at?: string | null;
+          last_updated_by_contact_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      printer_contracts: {
+        Row: {
+          id: string;
+          contract_reference: string;
+          provider_name: string;
+          provider_contact_name: string | null;
+          provider_contact_email: string | null;
+          provider_contact_phone: string | null;
+          contract_type: string;
+          covers_consumables: boolean;
+          covers_parts: boolean;
+          covers_labour: boolean;
+          sla_response_hours: number | null;
+          monthly_cost: number | null;
+          start_date: string | null;
+          end_date: string | null;
+          auto_renews: boolean;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          contract_reference: string;
+          provider_name: string;
+          provider_contact_name?: string | null;
+          provider_contact_email?: string | null;
+          provider_contact_phone?: string | null;
+          contract_type?: string;
+          covers_consumables?: boolean;
+          covers_parts?: boolean;
+          covers_labour?: boolean;
+          sla_response_hours?: number | null;
+          monthly_cost?: number | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          auto_renews?: boolean;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          contract_reference?: string;
+          provider_name?: string;
+          provider_contact_name?: string | null;
+          provider_contact_email?: string | null;
+          provider_contact_phone?: string | null;
+          contract_type?: string;
+          covers_consumables?: boolean;
+          covers_parts?: boolean;
+          covers_labour?: boolean;
+          sla_response_hours?: number | null;
+          monthly_cost?: number | null;
+          start_date?: string | null;
+          end_date?: string | null;
+          auto_renews?: boolean;
+          notes?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      printer_contract_assignments: {
+        Row: { id: string; contract_id: string; printer_id: string; assigned_at: string };
+        Insert: { id?: string; contract_id: string; printer_id: string; assigned_at?: string };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      consumable_types: {
+        Row: {
+          id: string;
+          printer_id: string | null;
+          colour: string;
+          kind: string;
+          description: string | null;
+          rated_yield_pages: number | null;
+          unit_price: number | null;
+          supplier_lead_days: number;
+          part_number: string | null;
+          manufacturer: string | null;
+          compatible_models: string | null;
+          coverage_pct: number;
+          reorder_threshold_pct: number;
+          reorder_stock_min: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          printer_id?: string | null;
+          colour: string;
+          kind: string;
+          description?: string | null;
+          rated_yield_pages?: number | null;
+          unit_price?: number | null;
+          supplier_lead_days?: number;
+          part_number?: string | null;
+          manufacturer?: string | null;
+          compatible_models?: string | null;
+          coverage_pct?: number;
+          reorder_threshold_pct?: number;
+          reorder_stock_min?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          printer_id?: string | null;
+          colour?: string;
+          kind?: string;
+          description?: string | null;
+          rated_yield_pages?: number | null;
+          unit_price?: number | null;
+          supplier_lead_days?: number;
+          part_number?: string | null;
+          manufacturer?: string | null;
+          compatible_models?: string | null;
+          coverage_pct?: number;
+          reorder_threshold_pct?: number;
+          reorder_stock_min?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       app_settings: {
         Row: { key: string; value: string };
         Insert: { key: string; value: string };
@@ -786,6 +1116,58 @@ export interface Database {
           { foreignKeyName: "task_follow_ups_external_contact_id_fkey"; columns: ["external_contact_id"]; referencedRelation: "external_contacts"; referencedColumns: ["id"] }
         ];
       };
+      task_checklist_items: {
+        Row: {
+          id: string;
+          task_id: string;
+          body: string;
+          is_done: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          body: string;
+          is_done?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          body?: string;
+          is_done?: boolean;
+          sort_order?: number;
+          updated_at?: string;
+        };
+        Relationships: [{ foreignKeyName: "task_checklist_items_task_id_fkey"; columns: ["task_id"]; referencedRelation: "tasks"; referencedColumns: ["id"] }];
+      };
+      task_dependencies: {
+        Row: {
+          id: string;
+          task_id: string;
+          depends_on_task_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          task_id: string;
+          depends_on_task_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          task_id?: string;
+          depends_on_task_id?: string;
+        };
+        Relationships: [
+          { foreignKeyName: "task_dependencies_task_id_fkey"; columns: ["task_id"]; referencedRelation: "tasks"; referencedColumns: ["id"] },
+          { foreignKeyName: "task_dependencies_depends_on_task_id_fkey"; columns: ["depends_on_task_id"]; referencedRelation: "tasks"; referencedColumns: ["id"] }
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -812,6 +1194,12 @@ export type PrinterTonerOrder = Database["public"]["Tables"]["printer_toner_orde
 export type PrinterPaperOrder = Database["public"]["Tables"]["printer_paper_orders"]["Row"];
 export type PrinterTicket = Database["public"]["Tables"]["printer_tickets"]["Row"];
 export type PrinterMeterReading = Database["public"]["Tables"]["printer_meter_readings"]["Row"];
+export type PrinterSnmpReading = Database["public"]["Tables"]["printer_snmp_readings"]["Row"];
+export type ConsumableType = Database["public"]["Tables"]["consumable_types"]["Row"];
+export type PrinterTray = Database["public"]["Tables"]["printer_trays"]["Row"];
+export type LocationPaperStock = Database["public"]["Tables"]["location_paper_stock"]["Row"];
+export type PrinterContract = Database["public"]["Tables"]["printer_contracts"]["Row"];
+export type PrinterContractAssignment = Database["public"]["Tables"]["printer_contract_assignments"]["Row"];
 
 export type AssetWithRelations = Asset & {
   category: Category | null;
@@ -906,18 +1294,26 @@ export type TaskFollowUp = {
   updated_at: string;
 };
 
+export type TaskChecklistItem = {
+  id: string;
+  task_id: string;
+  body: string;
+  is_done: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TaskDependency = {
+  id: string;
+  task_id: string;
+  depends_on_task_id: string;
+  created_at: string;
+};
+
 // ─── Tasks Dashboard ──────────────────────────────────────────────────────────
 
-export type DashboardAlertTask = {
-  id: string;
-  task_code: number;
-  title: string;
-  status: string;
-  priority: string;
-  category: string | null;
-  due_date: string | null;
-  status_changed_at: string;
-  created_at: string;
+export type DashboardAlertTask = Task & {
   task_updates: { body: string; created_at: string }[];
 };
 
@@ -926,7 +1322,7 @@ export type DashboardFollowUp = {
   task_id: string;
   due_date: string;
   note: string | null;
-  task: { id: string; task_code: number; title: string } | null;
+  task: DashboardAlertTask | null;
   contact: { id: string; full_name: string } | null;
   external_contact: { id: string; name: string } | null;
 };
@@ -935,7 +1331,7 @@ export type DashboardRecentUpdate = {
   id: string;
   body: string;
   created_at: string;
-  task: { id: string; task_code: number; title: string; status: string } | null;
+  task: DashboardAlertTask | null;
 };
 
 export type DashboardData = {
