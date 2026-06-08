@@ -556,8 +556,8 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
               </div>
             ) : (
               <>
-                {/* Mobile: compact rows */}
-                <div className="divide-y divide-stone-50 sm:hidden">
+                {/* Mobile + tablet: compact rows */}
+                <div className="divide-y divide-stone-50 lg:hidden">
                   {sorted.map((task) => {
                     const statusCfg   = getTaskStatusConfig(task.status);
                     const priorityCfg = getTaskPriorityConfig(task.priority);
@@ -597,8 +597,8 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
                 </div>
 
                 {/* Desktop: full grid table */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <div className="min-w-[860px]">
+                <div className="hidden lg:block overflow-x-auto">
+                  <div className="min-w-[1000px]">
                     <div className="grid grid-cols-[5rem_1fr_8rem_7rem_7rem_6rem_4rem_8rem] gap-3 px-4 py-2.5 bg-stone-50 border-b border-stone-100">
                       {["Code", "Task", "Status", "Priority", "Category", "Due", "Age", "Last Update"].map((h) => (
                         <span key={h} className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">
