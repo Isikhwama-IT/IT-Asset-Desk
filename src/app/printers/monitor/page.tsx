@@ -206,6 +206,7 @@ async function getMonitorData() {
     totalA3Reams: 0,
     avgDailyPages: null,
     estDaysLeft: null,
+    siteKpis: [],
   };
 
   return { printers: typedPrinters, latestByPrinter, traysByPrinter, alerts, kpi };
@@ -216,7 +217,7 @@ function emptyKpi(): PrinterKpi {
     total: 0, online: 0, needsAttention: 0, reorderCount: 0, openTickets: 0,
     pagesThisMonth: 0, fleetMonthlyCost: null,
     totalA4Boxes: 0, totalA4LooseReams: 0, totalA4Sheets: 0, totalA3Reams: 0,
-    avgDailyPages: null, estDaysLeft: null,
+    avgDailyPages: null, estDaysLeft: null, siteKpis: [],
   };
 }
 

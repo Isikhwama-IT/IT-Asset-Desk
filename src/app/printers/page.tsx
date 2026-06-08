@@ -21,7 +21,7 @@ import {
 } from "@/lib/printer-capabilities";
 import AutoRefresh from "@/components/AutoRefresh";
 import PrinterAlertBanner, { type PrinterAlert } from "@/components/PrinterAlertBanner";
-import PrinterKpiCards, { type PrinterKpi } from "@/components/PrinterKpiCards";
+import PrinterKpiCards, { type PrinterKpi, type SiteKpi } from "@/components/PrinterKpiCards";
 import PrinterStatusGrid from "@/components/PrinterStatusGrid";
 import PrintersClient from "@/components/PrintersClient";
 import FleetActions from "@/components/FleetActions";
@@ -369,6 +369,52 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
     ? Math.round(totalA4Sheets / avgDailyPages)
     : null;
 
+  // ── Per-site KPI (online, paper, daily print, days remaining) ─────────────
+  const siteKpis: SiteKpi[] = [];
+  for (const location of (locations ?? [])) {
+    const sitePrinters = typedPrinters.filter((p) => p.location_id === location.id);
+    if (sitePrinters.length === 0) continue;
+
+    const siteOnline = sitePrinters.filter(
+      (p) => p.status === "Active" || p.status === "Needs Attention"
+    ).length;
+
+    let sitePagesThisMonth = 0;
+    for (const printer of sitePrinters) {
+      const vals = meterByPrinter[printer.id];
+      if (!vals || vals.length < 2) continue;
+      sitePagesThisMonth += Math.max(...vals) - Math.min(...vals);
+    }
+
+    const siteStocks = paperStockByLocation[location.id] ?? [];
+    const a4Stock = siteStocks.find((s) => s.paper_size === "A4");
+    const a3Stock = siteStocks.find((s) => s.paper_size === "A3");
+    const siteA4Boxes = a4Stock?.boxes_on_hand ?? 0;
+    const siteA4LooseReams = a4Stock?.reams_on_hand ?? 0;
+    const siteA4Sheets = siteA4Boxes * SHEETS_PER_BOX_A4 + siteA4LooseReams * SHEETS_PER_REAM_A4;
+    const siteA3Reams = a3Stock?.reams_on_hand ?? 0;
+
+    const siteAvgDailyPages = daysElapsed > 0 && sitePagesThisMonth > 0
+      ? Math.round(sitePagesThisMonth / daysElapsed)
+      : null;
+    const siteEstDaysLeft = siteAvgDailyPages !== null && siteAvgDailyPages > 0 && siteA4Sheets > 0
+      ? Math.round(siteA4Sheets / siteAvgDailyPages)
+      : null;
+
+    siteKpis.push({
+      locationId: location.id,
+      locationName: location.name,
+      total: sitePrinters.length,
+      online: siteOnline,
+      totalA4Boxes: siteA4Boxes,
+      totalA4LooseReams: siteA4LooseReams,
+      totalA4Sheets: siteA4Sheets,
+      totalA3Reams: siteA3Reams,
+      avgDailyPages: siteAvgDailyPages,
+      estDaysLeft: siteEstDaysLeft,
+    });
+  }
+
   const kpi: PrinterKpi = {
     total: typedPrinters.length,
     online,
@@ -383,6 +429,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
     totalA3Reams,
     avgDailyPages,
     estDaysLeft,
+    siteKpis,
   };
 
   return {
@@ -407,7 +454,7 @@ function emptyKpi(): PrinterKpi {
     total: 0, online: 0, needsAttention: 0, reorderCount: 0, openTickets: 0,
     pagesThisMonth: 0, fleetMonthlyCost: null,
     totalA4Boxes: 0, totalA4LooseReams: 0, totalA4Sheets: 0, totalA3Reams: 0,
-    avgDailyPages: null, estDaysLeft: null,
+    avgDailyPages: null, estDaysLeft: null, siteKpis: [],
   };
 }
 
@@ -512,7 +559,7 @@ export default async function PrintersPage({
                   Fleet · {printers.length} printer{printers.length !== 1 ? "s" : ""}
                 </p>
               </div>
-              <p className="text-[11px] text-stone-400">{kpi.online} online · {kpi.total - kpi.online} offline</p>
+              <p className="text-[11px] text-stone-400">{printers.length} printer{printers.length !== 1 ? "s" : ""}</p>
             </div>
             <div className="p-4">
               <PrinterStatusGrid printers={printers} latestByPrinter={latestByPrinter} traysByPrinter={traysByPrinter ?? {}} />
