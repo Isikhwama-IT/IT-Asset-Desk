@@ -6,6 +6,7 @@ export type SiteKpi = {
   locationName: string;
   total: number;
   online: number;
+  pagesThisMonth: number;
   totalA4Boxes: number;
   totalA4LooseReams: number;
   totalA4Sheets: number;
@@ -20,6 +21,7 @@ export type PrinterKpi = {
   needsAttention: number;
   reorderCount: number;
   openTickets: number;
+  openTicketPrinters: string[];
   pagesThisMonth: number;
   fleetMonthlyCost: number | null;
   totalA4Boxes: number;
@@ -138,7 +140,7 @@ function SiteSection({ site }: { site: SiteKpi }) {
         </p>
         <div className="flex-1 h-px bg-stone-100" />
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <KpiCard
           label="Printers Online"
           value={`${site.online} / ${site.total}`}
@@ -146,6 +148,14 @@ function SiteSection({ site }: { site: SiteKpi }) {
           accent={allOnline ? "#059669" : "#dc2626"}
           iconBg={allOnline ? "#d1fae5" : "#fee2e2"}
           icon={Printer}
+        />
+        <KpiCard
+          label="Pages This Month"
+          value={site.pagesThisMonth.toLocaleString()}
+          sub="pages printed at this site"
+          accent="#C04F28"
+          iconBg="#f0d4c8"
+          icon={FileText}
         />
         <SitePaperCard site={site} />
         <KpiCard
@@ -198,7 +208,9 @@ export default function PrinterKpiCards({ kpi }: { kpi: PrinterKpi }) {
     {
       label: "Open Tickets",
       value: kpi.openTickets,
-      sub: "active tickets",
+      sub: kpi.openTickets > 0 && kpi.openTicketPrinters.length > 0
+        ? kpi.openTicketPrinters.join(", ")
+        : "active tickets",
       accent: kpi.openTickets > 0 ? "#d97706" : "#059669",
       iconBg: kpi.openTickets > 0 ? "#fef3c7" : "#d1fae5",
       icon: TicketCheck,

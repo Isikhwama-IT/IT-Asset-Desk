@@ -71,6 +71,13 @@ function tonerStockForSlot(printer: PrinterWithRelations, slot: TonerSlot): numb
   return ((printer as Record<string, unknown>)[`${slot}_toner_stock`] as number | undefined) ?? 0;
 }
 
+// Returns null when the field was never recorded (null in DB), vs 0 when explicitly set to zero.
+function tonerStockRawForSlot(printer: PrinterWithRelations, slot: TonerSlot): number | null {
+  if (slot === "combined" || slot === "black") return printer.black_toner_stock;
+  const raw = (printer as Record<string, unknown>)[`${slot}_toner_stock`];
+  return typeof raw === "number" ? raw : null;
+}
+
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
 async function getAllData(params: SearchParams, readingsPage = 1) {
@@ -147,7 +154,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
     { data: snmpReadings },
     { data: meterReadings, count: totalReadings },
     { data: monthMeters },
-    { count: openTickets },
+    { data: openTicketData, count: openTickets },
     { data: allConsumableTypes },
     { data: printerTrays },
     { data: paperStockRows },
@@ -155,7 +162,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
     supabase.from("printer_snmp_readings").select("*").in("printer_id", printerIds).gte("polled_at", sevenDaysAgo).order("polled_at", { ascending: false }),
     supabase.from("printer_meter_readings").select("id, printer_id, reading, reading_at, notes", { count: "exact" }).in("printer_id", printerIds).order("reading_at", { ascending: false }).range(readingsOffset, readingsOffset + READINGS_PER_PAGE - 1),
     supabase.from("printer_meter_readings").select("printer_id, reading, reading_at").in("printer_id", printerIds).gte("reading_at", monthStart).order("reading_at"),
-    supabase.from("printer_tickets").select("id", { count: "exact", head: true }).in("status", ["Open", "In Progress", "Waiting Supplier"]),
+    supabase.from("printer_tickets").select("id, printer_id", { count: "exact" }).in("status", ["Open", "In Progress", "Waiting Supplier"]),
     supabase.from("consumable_types").select("*").order("part_number"),
     supabase.from("printer_trays").select("*").in("printer_id", printerIds).eq("is_active", true).order("sort_order"),
     supabase.from("location_paper_stock").select("*").in("location_id",
@@ -193,6 +200,10 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
   }
   const nameById: Record<string, string> = {};
   for (const p of typedPrinters) nameById[p.id] = p.name;
+
+  const openTicketPrinterNames = [
+    ...new Set((openTicketData ?? []).map((t: { printer_id: string }) => t.printer_id)),
+  ].map((id) => nameById[id]).filter((n): n is string => Boolean(n));
 
   const readingRows: ReadingWithDelta[] = [];
   for (const [pid, rows] of Object.entries(byPrinter)) {
@@ -284,19 +295,29 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
       (traysByPrinter[printer.id] ?? []).map((tray) => ({ ...tray, paper_size: tray.paper_size as PaperSize }))
     );
     const r = latestByPrinter[printer.id];
-    if (r) {
+
+    // Toner checks run for ALL printers — SNMP data not required.
+    // Reorder fires when shelf stock is explicitly 0, regardless of toner level.
+    // Low-toner fires when SNMP shows ≤ 25% but a spare is available.
+    {
       const reorderColours: string[] = [];
       const lowColours: string[] = [];
 
       for (const slot of capabilities.tonerSlots) {
         const label = slot === "combined" ? "All-in-one" : SLOT_LABEL[slot];
         const pct = tonerPctForSlot(slot, r);
-        const stock = tonerStockForSlot(printer, slot);
-        if (pct === null) continue;
-        if (pct <= 25 && stock < 1) {
+        const stockRaw = tonerStockRawForSlot(printer, slot);
+        const stock = stockRaw ?? 0;
+
+        if (stockRaw !== null && stock < 1) {
+          // Spare explicitly set to 0 — needs ordering regardless of toner level
+          reorderColours.push(`${label}${pct !== null ? ` (${pct === 0 ? "empty" : `${pct}%`})` : ""}`);
+          reorderCount++;
+        } else if (pct !== null && pct <= 25 && stock < 1) {
+          // SNMP shows low + no/unknown stock
           reorderColours.push(`${label} ${pct === 0 ? "(empty)" : `(${pct}%)`}`);
           reorderCount++;
-        } else if (pct <= 25) {
+        } else if (pct !== null && pct <= 25) {
           lowColours.push(`${label} ${pct}%`);
         }
       }
@@ -309,6 +330,9 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
         tonerLowItems.push({ printer: printer.name, colours: lowColours });
         needsAttentionSet.add(printer.id);
       }
+    }
+
+    if (r) {
       if (capabilities.hasWasteBox && r.waste_box_pct !== null && r.waste_box_pct >= 80) {
         wasteBoxNames.push(printer.name);
         needsAttentionSet.add(printer.id);
@@ -347,7 +371,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
   if (pollFailNames.length > 0)
     alerts.push({ level: "warning", type: "Poll Stale", message: "No SNMP data in the last 2 hours", printers: pollFailNames });
   if ((openTickets ?? 0) > 0)
-    alerts.push({ level: "info", type: "Open Tickets", message: `${openTickets} open ticket${openTickets !== 1 ? "s" : ""} awaiting action`, printers: [] });
+    alerts.push({ level: "info", type: "Open Tickets", message: `${openTickets} open ticket${openTickets !== 1 ? "s" : ""} awaiting action`, printers: openTicketPrinterNames });
 
   // ── Paper stock totals across all sites ───────────────────────────────────
   let totalA4Boxes = 0;
@@ -406,6 +430,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
       locationName: location.name,
       total: sitePrinters.length,
       online: siteOnline,
+      pagesThisMonth: sitePagesThisMonth,
       totalA4Boxes: siteA4Boxes,
       totalA4LooseReams: siteA4LooseReams,
       totalA4Sheets: siteA4Sheets,
@@ -421,6 +446,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
     needsAttention: needsAttentionSet.size,
     reorderCount,
     openTickets: openTickets ?? 0,
+    openTicketPrinters: openTicketPrinterNames,
     pagesThisMonth,
     fleetMonthlyCost,
     totalA4Boxes,
@@ -452,7 +478,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
 function emptyKpi(): PrinterKpi {
   return {
     total: 0, online: 0, needsAttention: 0, reorderCount: 0, openTickets: 0,
-    pagesThisMonth: 0, fleetMonthlyCost: null,
+    openTicketPrinters: [], pagesThisMonth: 0, fleetMonthlyCost: null,
     totalA4Boxes: 0, totalA4LooseReams: 0, totalA4Sheets: 0, totalA3Reams: 0,
     avgDailyPages: null, estDaysLeft: null, siteKpis: [],
   };

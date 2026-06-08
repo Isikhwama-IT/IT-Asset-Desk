@@ -56,9 +56,9 @@ async function getMonitorData() {
   }
 
   // Open tickets count
-  const { count: openTickets } = await supabase
+  const { data: openTicketData, count: openTickets } = await supabase
     .from("printer_tickets")
-    .select("id", { count: "exact", head: true })
+    .select("id, printer_id", { count: "exact" })
     .in("status", ["Open", "In Progress"]);
 
   // This month's meter readings for page-count delta
@@ -74,6 +74,11 @@ async function getMonitorData() {
   // ── Compute KPIs ─────────────────────────────────────────────────────────
 
   const online = typedPrinters.filter((p) => p.status === "Active" || p.status === "Needs Attention").length;
+  const nameById: Record<string, string> = {};
+  for (const p of typedPrinters) nameById[p.id] = p.name;
+  const openTicketPrinterNames = [
+    ...new Set((openTicketData ?? []).map((t: { printer_id: string }) => t.printer_id)),
+  ].map((id) => nameById[id]).filter((n): n is string => Boolean(n));
 
   // Pages this month: max − min per printer within the month
   const readingsByPrinter: Record<string, number[]> = {};
@@ -114,19 +119,25 @@ async function getMonitorData() {
     offlinePrinters.forEach((p) => needsAttentionSet.add(p.id));
   }
 
-  // REORDER REQUIRED (stock = 0 and toner ≤ 25%)
+  // REORDER REQUIRED — shelf stock explicitly 0, or toner ≤ 25% with no/unknown stock
   const reorderNames: string[] = [];
   let reorderCount = 0;
   for (const printer of typedPrinters) {
     const r = latestByPrinter[printer.id];
-    if (!r) continue;
-    const blackLow = r.black_toner_pct !== null && r.black_toner_pct <= 25 && printer.black_toner_stock < 1;
-    const colourLow =
-      ((r.cyan_toner_pct !== null && r.cyan_toner_pct <= 25) ||
-       (r.magenta_toner_pct !== null && r.magenta_toner_pct <= 25) ||
-       (r.yellow_toner_pct !== null && r.yellow_toner_pct <= 25)) &&
-      printer.colour_toner_stock < 1;
-    if (blackLow || colourLow) {
+    const blackPct = r?.black_toner_pct ?? null;
+    const colourLowPct = r
+      ? (r.cyan_toner_pct !== null && r.cyan_toner_pct <= 25) ||
+        (r.magenta_toner_pct !== null && r.magenta_toner_pct <= 25) ||
+        (r.yellow_toner_pct !== null && r.yellow_toner_pct <= 25)
+      : false;
+    const blackReorder =
+      (printer.black_toner_stock !== null && printer.black_toner_stock < 1) ||
+      (blackPct !== null && blackPct <= 25 && (printer.black_toner_stock ?? 0) < 1);
+    const colourReorder =
+      (printer.colour_toner_stock !== null && printer.colour_toner_stock < 1 &&
+        r !== undefined && (r.cyan_toner_pct !== null || r.magenta_toner_pct !== null || r.yellow_toner_pct !== null)) ||
+      (colourLowPct && (printer.colour_toner_stock ?? 0) < 1);
+    if (blackReorder || colourReorder) {
       reorderNames.push(printer.name);
       reorderCount++;
       needsAttentionSet.add(printer.id);
@@ -142,11 +153,11 @@ async function getMonitorData() {
     const r = latestByPrinter[printer.id];
     if (!r) continue;
     const low =
-      (r.black_toner_pct !== null && r.black_toner_pct <= 25 && printer.black_toner_stock >= 1) ||
-      ((r.cyan_toner_pct !== null && r.cyan_toner_pct <= 25) ||
-       (r.magenta_toner_pct !== null && r.magenta_toner_pct <= 25) ||
-       (r.yellow_toner_pct !== null && r.yellow_toner_pct <= 25)) &&
-      printer.colour_toner_stock >= 1;
+      (r.black_toner_pct !== null && r.black_toner_pct <= 25 && (printer.black_toner_stock ?? 0) >= 1) ||
+      (((r.cyan_toner_pct !== null && r.cyan_toner_pct <= 25) ||
+        (r.magenta_toner_pct !== null && r.magenta_toner_pct <= 25) ||
+        (r.yellow_toner_pct !== null && r.yellow_toner_pct <= 25)) &&
+        (printer.colour_toner_stock ?? 0) >= 1);
     if (low && !reorderNames.includes(printer.name)) {
       tonerLowNames.push(printer.name);
       needsAttentionSet.add(printer.id);
@@ -188,7 +199,7 @@ async function getMonitorData() {
       level: "info",
       type: "Open Tickets",
       message: `${openTickets} open ticket${openTickets !== 1 ? "s" : ""} awaiting action`,
-      printers: [],
+      printers: openTicketPrinterNames,
     });
   }
 
@@ -198,6 +209,7 @@ async function getMonitorData() {
     needsAttention: needsAttentionSet.size,
     reorderCount,
     openTickets: openTickets ?? 0,
+    openTicketPrinters: openTicketPrinterNames,
     pagesThisMonth,
     fleetMonthlyCost: null,
     totalA4Boxes: 0,
@@ -215,7 +227,7 @@ async function getMonitorData() {
 function emptyKpi(): PrinterKpi {
   return {
     total: 0, online: 0, needsAttention: 0, reorderCount: 0, openTickets: 0,
-    pagesThisMonth: 0, fleetMonthlyCost: null,
+    openTicketPrinters: [], pagesThisMonth: 0, fleetMonthlyCost: null,
     totalA4Boxes: 0, totalA4LooseReams: 0, totalA4Sheets: 0, totalA3Reams: 0,
     avgDailyPages: null, estDaysLeft: null, siteKpis: [],
   };
