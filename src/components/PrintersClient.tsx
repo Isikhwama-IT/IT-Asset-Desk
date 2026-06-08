@@ -81,14 +81,14 @@ export default function PrintersClient({
 
   return (
     <>
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <Stat label="Visible Printers" value={total} />
         <Stat label="Needs Attention" value={needsAttention} tone={needsAttention > 0 ? "warn" : "calm"} />
         <Stat label="Consumables Watch" value={needsConsumables} tone={needsConsumables > 0 ? "warn" : "calm"} />
       </div>
 
       <div className={`flex items-center gap-3 mb-5 flex-wrap transition-opacity ${isPending ? "opacity-60" : ""}`}>
-        <div className="relative flex-1 min-w-[220px] max-w-sm">
+        <div className="relative w-full sm:flex-1 sm:min-w-[220px] sm:max-w-sm">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             type="text"
@@ -158,48 +158,52 @@ export default function PrintersClient({
       </div>
 
       <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-        <div className="grid grid-cols-[3rem_1.2fr_7rem_7rem_7rem_8rem_8rem_2rem] gap-3 px-4 py-2.5 bg-stone-50 border-b border-stone-100">
-          {["#", "Printer", "Status", "Toner", "Paper", "IP Address", "Site", ""].map((heading) => (
-            <span key={heading} className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">{heading}</span>
-          ))}
-        </div>
+        <div className="overflow-x-auto">
+          <div className="min-w-[640px]">
+            <div className="grid grid-cols-[3rem_1.2fr_7rem_7rem_7rem_8rem_8rem_2rem] gap-3 px-4 py-2.5 bg-stone-50 border-b border-stone-100">
+              {["#", "Printer", "Status", "Toner", "Paper", "IP Address", "Site", ""].map((heading) => (
+                <span key={heading} className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">{heading}</span>
+              ))}
+            </div>
 
-        <div className="divide-y divide-stone-50">
-          {printers.length === 0 ? (
-            <div className="py-16 text-center text-stone-400 text-[13px]">No printers match your filters</div>
-          ) : (
-            printers.map((printer) => {
-              const statusCfg = getPrinterStatusConfig(printer.status);
-              const tonerCfg = getConsumableStatusConfig(printer.toner_status);
-              const paperCfg = getConsumableStatusConfig(printer.paper_status);
-              return (
-                <button
-                  key={printer.id}
-                  onClick={() => router.push(`/printers/${printer.id}`)}
-                  className="w-full grid grid-cols-[3rem_1.2fr_7rem_7rem_7rem_8rem_8rem_2rem] gap-3 px-4 py-3 items-center text-left hover:bg-stone-50 transition-colors group"
-                >
-                  <span className="text-[12px] font-mono text-stone-400 font-medium">{printer.printer_code}</span>
-                  <span className="min-w-0 flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-lg bg-stone-100 flex items-center justify-center flex-shrink-0">
-                      <Printer size={14} className="text-stone-500" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-[13px] text-stone-800 truncate">{printer.name}</span>
-                      <span className="block text-[11px] text-stone-400 truncate">
-                        {[printer.manufacturer, printer.model].filter(Boolean).join(" ") || printer.serial_number || "No model captured"}
+            <div className="divide-y divide-stone-50">
+              {printers.length === 0 ? (
+                <div className="py-16 text-center text-stone-400 text-[13px]">No printers match your filters</div>
+              ) : (
+                printers.map((printer) => {
+                  const statusCfg = getPrinterStatusConfig(printer.status);
+                  const tonerCfg = getConsumableStatusConfig(printer.toner_status);
+                  const paperCfg = getConsumableStatusConfig(printer.paper_status);
+                  return (
+                    <button
+                      key={printer.id}
+                      onClick={() => router.push(`/printers/${printer.id}`)}
+                      className="w-full grid grid-cols-[3rem_1.2fr_7rem_7rem_7rem_8rem_8rem_2rem] gap-3 px-4 py-3 items-center text-left hover:bg-stone-50 transition-colors group"
+                    >
+                      <span className="text-[12px] font-mono text-stone-400 font-medium">{printer.printer_code}</span>
+                      <span className="min-w-0 flex items-center gap-2">
+                        <span className="w-7 h-7 rounded-lg bg-stone-100 flex items-center justify-center flex-shrink-0">
+                          <Printer size={14} className="text-stone-500" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[13px] text-stone-800 truncate">{printer.name}</span>
+                          <span className="block text-[11px] text-stone-400 truncate">
+                            {[printer.manufacturer, printer.model].filter(Boolean).join(" ") || printer.serial_number || "No model captured"}
+                          </span>
+                        </span>
                       </span>
-                    </span>
-                  </span>
-                  <Badge label={printer.status} cfg={statusCfg} />
-                  <Badge label={printer.toner_status} cfg={tonerCfg} />
-                  <Badge label={printer.paper_status} cfg={paperCfg} />
-                  <span className="text-[12px] text-stone-500 truncate">{printer.ip_address ?? "-"}</span>
-                  <span className="text-[12px] text-stone-500 truncate">{printer.location?.name ?? "-"}</span>
-                  <ArrowUpRight size={13} className="text-stone-200 group-hover:text-stone-400 justify-self-end" />
-                </button>
-              );
-            })
-          )}
+                      <Badge label={printer.status} cfg={statusCfg} />
+                      <Badge label={printer.toner_status} cfg={tonerCfg} />
+                      <Badge label={printer.paper_status} cfg={paperCfg} />
+                      <span className="text-[12px] text-stone-500 truncate">{printer.ip_address ?? "-"}</span>
+                      <span className="text-[12px] text-stone-500 truncate">{printer.location?.name ?? "-"}</span>
+                      <ArrowUpRight size={13} className="text-stone-200 group-hover:text-stone-400 justify-self-end" />
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

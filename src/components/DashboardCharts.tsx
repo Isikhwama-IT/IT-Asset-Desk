@@ -58,7 +58,7 @@ export default function DashboardCharts({ statusData, departmentData, monthlyDat
   return (
     <div className="space-y-6 mb-8">
       {/* Row 1: Donut + Area */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Donut — by Status */}
         <div className="bg-white rounded-xl border border-stone-200 p-5 card-lift fade-up fade-up-1">
           <p className="text-[12px] font-medium uppercase tracking-wider mb-4" style={{ color: "#859474" }}>

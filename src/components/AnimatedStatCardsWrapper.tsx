@@ -8,6 +8,6 @@ type Props = Parameters<typeof AnimatedStatCards>[0];
 export default function AnimatedStatCardsWrapper(props: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return <div className="grid grid-cols-4 gap-4 mb-8" style={{ height: 104 }} />;
+  if (!mounted) return <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8" style={{ height: 104 }} />;
   return <AnimatedStatCards {...props} />;
 }

@@ -121,8 +121,23 @@ type TimelineEvent = {
   priority: number; // tie-breaker: lower = earlier when timestamps are equal
 };
 
-export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function backFromParam(from: string | undefined): { href: string; label: string } {
+  if (!from) return { href: "/assets", label: "Back to Assets" };
+  if (from === "/people") return { href: "/people", label: "Back to People" };
+  if (from.startsWith("/printers/")) return { href: from, label: "Back to Printer" };
+  if (from === "/printers") return { href: "/printers", label: "Back to Printers" };
+  return { href: "/assets", label: "Back to Assets" };
+}
+
+export default async function AssetDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
+}) {
   const { id } = await params;
+  const { from } = await searchParams;
   const result = await getAsset(id);
   if (!result) notFound();
 
@@ -228,16 +243,16 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   };
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 sm:p-8 max-w-5xl">
       {/* Back */}
-      <Link href="/assets" className="inline-flex items-center gap-1.5 text-[12px] mb-6 transition-colors hover:opacity-70" style={{ color: "#859474" }}>
+      <Link href={backFromParam(from).href} className="inline-flex items-center gap-1.5 text-[12px] mb-6 transition-colors hover:opacity-70" style={{ color: "#859474" }}>
         <ArrowLeft size={13} />
-        Back to Assets
+        {backFromParam(from).label}
       </Link>
 
       {/* Header */}
       <div className="mb-6 fade-up">
-        <div className="flex items-start gap-4">
+        <div className="flex flex-col sm:flex-row items-start gap-4">
           <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: "#eef3e6" }}>
             {getCategoryIcon(asset.category?.name)}
           </div>
@@ -273,9 +288,9 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left column */}
-        <div className="col-span-2 space-y-5">
+        <div className="col-span-1 lg:col-span-2 space-y-5">
           <Section title="Asset Details">
             <InfoRow icon={Tag} label="Serial Number" value={asset.serial_number} />
             <InfoRow icon={Calendar} label="Purchase Date" value={formatDate(asset.purchase_date)} />

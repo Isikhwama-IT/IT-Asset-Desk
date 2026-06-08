@@ -34,7 +34,7 @@ export default function RequestsClient({ requests }: { requests: AssetRequest[] 
   return (
     <div className="fade-up">
       {/* Status filter tabs */}
-      <div className="flex gap-1 mb-6 border-b border-stone-200">
+      <div className="flex gap-1 mb-6 border-b border-stone-200 overflow-x-auto">
         {STATUS_TABS.map((tab) => {
           const count = countFor(tab);
           return (
@@ -69,7 +69,8 @@ export default function RequestsClient({ requests }: { requests: AssetRequest[] 
             <p className="text-[13px]">No {activeTab === "All" ? "" : activeTab.toLowerCase() + " "}requests</p>
           </div>
         ) : (
-          <table className="w-full text-left">
+          <div className="overflow-x-auto">
+          <table className="w-full text-left min-w-[560px]">
             <thead>
               <tr className="border-b border-stone-100">
                 <th className="px-5 py-3 text-[11px] font-medium text-stone-400 uppercase tracking-wider">Date</th>
@@ -113,6 +114,7 @@ export default function RequestsClient({ requests }: { requests: AssetRequest[] 
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

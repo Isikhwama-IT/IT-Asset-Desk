@@ -4,7 +4,7 @@ function Sk({ className }: { className?: string }) {
 
 export default function PeopleLoading() {
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto">
       <div className="mb-8">
         <Sk className="h-7 w-24 mb-2" />
         <Sk className="h-4 w-48" />
@@ -22,7 +22,7 @@ export default function PeopleLoading() {
             <Sk className="h-3 w-28" />
             <div className="flex-1 h-px bg-stone-100" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="bg-white rounded-xl border border-stone-200 p-4 flex items-center gap-3">
                 <Sk className="h-9 w-9 rounded-full flex-shrink-0" />

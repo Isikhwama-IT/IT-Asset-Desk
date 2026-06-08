@@ -4,12 +4,12 @@ function Sk({ className }: { className?: string }) {
 
 export default function DashboardLoading() {
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="mb-8">
         <Sk className="h-7 w-40 mb-2" />
         <Sk className="h-4 w-56" />
       </div>
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="bg-white rounded-xl border border-stone-200 p-5">
             <Sk className="h-8 w-8 mb-3 rounded-lg" />
@@ -19,7 +19,7 @@ export default function DashboardLoading() {
           </div>
         ))}
       </div>
-      <div className="grid grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white rounded-xl border border-stone-200 p-5">
           <Sk className="h-4 w-28 mb-4" />
           <Sk className="h-40 w-40 rounded-full mx-auto mb-4" />

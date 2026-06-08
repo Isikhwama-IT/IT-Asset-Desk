@@ -402,7 +402,7 @@ export default function AssetsClientFilters({
       {/* Toolbar */}
       <div className={`flex items-center gap-3 mb-5 flex-wrap transition-opacity ${isPending ? "opacity-60" : ""}`}>
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             type="text"
@@ -528,6 +528,8 @@ export default function AssetsClientFilters({
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+        <div className="overflow-x-auto">
+        <div className="min-w-[780px]">
         {/* Header */}
         <div className={`grid ${GRID} gap-3 px-4 py-2.5 bg-stone-50 border-b border-stone-100`}>
           <div className="flex items-center">
@@ -598,6 +600,8 @@ export default function AssetsClientFilters({
             })
           )}
         </motion.div>
+        </div>
+        </div>
       </div>
 
       {/* Pagination */}
@@ -626,8 +630,8 @@ export default function AssetsClientFilters({
       {/* Bulk action toolbar */}
       {selectedIds.size > 0 && (
         <div
-          className="fixed bottom-6 z-50 flex items-center gap-3 bg-stone-900 text-white px-4 py-2.5 rounded-xl shadow-2xl"
-          style={{ left: "calc(50% + 110px)", transform: "translateX(-50%)" }}
+          className="fixed bottom-6 left-1/2 z-50 flex items-center gap-3 bg-stone-900 text-white px-4 py-2.5 rounded-xl shadow-2xl md:left-[calc(50%+110px)]"
+          style={{ transform: "translateX(-50%)" }}
         >
           <span className="text-[13px] font-medium tabular-nums">
             {selectedIds.size} selected

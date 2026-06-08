@@ -64,7 +64,7 @@ function StatCard({ card }: { card: StatCard }) {
 export default function AnimatedStatCards({ cards }: { cards: StatCard[] }) {
   return (
     <motion.div
-      className="grid grid-cols-4 gap-4 mb-8"
+      className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8"
       variants={staggerContainer}
       initial="hidden"
       animate="visible"

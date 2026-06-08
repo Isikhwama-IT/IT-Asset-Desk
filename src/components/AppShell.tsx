@@ -20,7 +20,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className="flex-1 md:ml-[220px] min-h-screen">
+      <main className="flex-1 md:ml-[220px] min-h-screen min-w-0 overflow-x-hidden">
         {/* Mobile header bar */}
         <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 bg-white border-b border-stone-200 md:hidden">
           <button

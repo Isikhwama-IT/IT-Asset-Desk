@@ -125,7 +125,7 @@ function ContactCard({
               {assets.map((asset) => {
                 const cfg = getStatusConfig(asset.status?.name);
                 return (
-                  <Link key={asset.id} href={`/assets/${asset.id}`}
+                  <Link key={asset.id} href={`/assets/${asset.id}?from=/people`}
                     className="flex items-center gap-3 px-4 py-2.5 hover:bg-white transition-colors group">
                     <span className="text-sm w-6 text-center">{getCategoryIcon(asset.category?.name)}</span>
                     <div className="flex-1 min-w-0">
@@ -198,7 +198,7 @@ function WhoHasWhat({
                 return (
                   <Link
                     key={asset.id}
-                    href={`/assets/${asset.id}`}
+                    href={`/assets/${asset.id}?from=/people`}
                     className="flex items-center gap-3.5 px-5 py-3 hover:bg-stone-50 transition-colors group"
                   >
                     <span className="text-base w-7 text-center flex-shrink-0">
@@ -272,7 +272,7 @@ export default function PeopleClientView({ contacts, assetsByContact, department
     <>
       {/* Filters */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+        <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
           <input type="text" placeholder="Search contacts…" value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-8 pr-3 py-2 text-[13px] border border-stone-200 rounded-lg bg-white text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-1 focus:ring-stone-300" />
@@ -368,7 +368,7 @@ export default function PeopleClientView({ contacts, assetsByContact, department
                 <span className="text-[11px] text-stone-300 font-mono">{deptContacts.length}</span>
                 <div className="flex-1 h-px bg-stone-100" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {deptContacts.map((contact) => (
                   <ContactCard
                     key={contact.id}

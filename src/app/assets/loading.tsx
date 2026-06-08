@@ -6,7 +6,7 @@ function Sk({ className, style }: { className?: string; style?: CSSProperties })
 
 export default function AssetsLoading() {
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
           <Sk className="h-7 w-24 mb-2" />

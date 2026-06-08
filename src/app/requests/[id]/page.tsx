@@ -18,7 +18,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const request = data as AssetRequest;
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-4 sm:p-8 max-w-2xl mx-auto">
       <div className="mb-6 fade-up">
         <Link href="/requests" className="inline-flex items-center gap-1.5 text-[12px] text-stone-400 hover:text-stone-700 mb-4">
           <ArrowLeft size={12} /> Back to Requests
@@ -42,7 +42,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             { label: "Category", value: request.category_name ?? "—" },
             { label: "Reason",   value: request.reason || "—" },
           ].map(({ label, value }) => (
-            <div key={label} className="py-2.5 grid grid-cols-[120px_1fr] gap-4">
+            <div key={label} className="py-2.5 grid grid-cols-1 sm:grid-cols-[120px_1fr] gap-1 sm:gap-4">
               <span className="text-[12px] text-stone-400">{label}</span>
               <span className="text-[13px] text-stone-800">{value}</span>
             </div>

@@ -68,7 +68,7 @@ export default function TasksDashboard({ data, onTaskClick }: Props) {
   return (
     <div className="space-y-8">
       {/* ── Section 1: Pulse ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <PulseCard
           label="Active Tasks"
           value={pulse.active}
@@ -178,6 +178,8 @@ export default function TasksDashboard({ data, onTaskClick }: Props) {
             subtitle="Highest priority tasks requiring your attention"
           />
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <div className="overflow-x-auto">
+            <div className="min-w-[600px]">
             <div className="grid grid-cols-[5rem_1fr_7rem_7rem_6rem_10rem] gap-3 px-4 py-2.5 bg-stone-50 border-b border-stone-100">
               {["Code", "Task", "Priority", "Status", "Due", "Status Age"].map((h) => (
                 <span key={h} className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">
@@ -230,6 +232,8 @@ export default function TasksDashboard({ data, onTaskClick }: Props) {
                 );
               })}
             </div>
+            </div>
+            </div>
           </div>
         </div>
       )}
@@ -238,7 +242,7 @@ export default function TasksDashboard({ data, onTaskClick }: Props) {
       {(statusSpread.length > 0 || byCategory.length > 0) && (
         <div>
           <SectionHeader icon={<TrendingUp size={14} />} label="Metrics" />
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Status Spread */}
             <div className="bg-white rounded-xl border border-stone-200 p-5">
               <p className="text-[11px] font-medium text-stone-400 uppercase tracking-wider mb-4">Status Spread</p>
@@ -309,7 +313,7 @@ export default function TasksDashboard({ data, onTaskClick }: Props) {
         {followUps.overdue.length === 0 && followUps.dueSoon.length === 0 ? (
           <p className="text-[13px] text-stone-400 italic py-2">No follow-ups pending</p>
         ) : (
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FollowUpList
               title="Overdue"
               items={followUps.overdue}

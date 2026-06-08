@@ -14,15 +14,19 @@ import {
   AlignLeft,
   CalendarDays,
   ChevronDown,
+  ClipboardList,
   Kanban,
   LayoutDashboard,
   List,
   ListTodo,
+  Loader2,
+  Plus,
   SlidersHorizontal,
   X,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { createTask } from "@/lib/actions";
+import { useToast } from "@/components/Toast";
+import { createTask, createTaskFromTemplate } from "@/lib/actions";
 import { TaskPanel } from "@/components/TaskPanel";
 import TasksDashboard from "@/components/TasksDashboard";
 import TasksKanban from "@/components/TasksKanban";
@@ -39,6 +43,7 @@ import {
   lastActivityDate,
   sortTasks,
 } from "@/lib/tasks";
+import { TASK_TEMPLATES } from "@/lib/task-templates";
 import type { CalendarData, DashboardAlertTask, DashboardData, TaskWithActivity } from "@/types/database";
 
 // ─── View definitions ─────────────────────────────────────────────────────────
@@ -62,11 +67,15 @@ interface Props {
 
 export default function TasksClient({ view, tasks, total, dashboardData, calendarData }: Props) {
   const { isAdmin } = useAuth();
+  const { success } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [quickAdd, setQuickAdd] = useState("");
+  const [addError, setAddError] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
   const [selectedTask, setSelectedTask] = useState<TaskWithActivity | null>(null);
   const [showClosed, setShowClosed] = useState(false);
   const [ganttMode, setGanttMode] = useState<GanttMode>("Week");
@@ -116,6 +125,7 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
     const title = quickAdd.trim();
     if (!title) return;
 
+    setAddError("");
     setQuickAdd("");
     setIsAdding(true);
 
@@ -136,10 +146,31 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
       task_updates: [],
     };
 
-    addOptimisticTask(tempTask);
-    await createTask(title);
-    setIsAdding(false);
-    router.refresh();
+    startTransition(() => {
+      addOptimisticTask(tempTask);
+    });
+
+    try {
+      const res = await createTask(title);
+      if (res.error || !res.task) {
+        setQuickAdd(title);
+        setAddError(res.error ?? "Could not create task.");
+        router.refresh();
+        return;
+      }
+
+      success(`Created ${formatTaskCode(res.task.task_code)}`);
+      if (view === "dashboard" || view === "calendar") {
+        setSelectedTask(res.task);
+      }
+      router.refresh();
+    } catch (err) {
+      setQuickAdd(title);
+      setAddError(err instanceof Error ? err.message : "Could not create task.");
+      router.refresh();
+    } finally {
+      setIsAdding(false);
+    }
   }
 
   // Dashboard task click — need to convert DashboardAlertTask to TaskWithActivity
@@ -149,12 +180,37 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
       status: alertTask.status as TaskWithActivity["status"],
       priority: alertTask.priority as TaskWithActivity["priority"],
       category: alertTask.category as TaskWithActivity["category"],
-      status_reason: null,
-      source: null,
-      updated_at: alertTask.status_changed_at,
-      archived_at: null,
-      task_updates: alertTask.task_updates.map((u) => ({ created_at: u.created_at })),
+      status_reason: alertTask.status_reason ?? null,
+      source: (alertTask.source ?? null) as TaskWithActivity["source"],
+      updated_at: alertTask.updated_at ?? alertTask.status_changed_at,
+      archived_at: alertTask.archived_at ?? null,
+      task_updates: (alertTask.task_updates ?? []).map((u) => ({ body: u.body, created_at: u.created_at })),
     });
+  }
+
+  async function handleCreateFromTemplate() {
+    if (!selectedTemplateId) return;
+    setAddError("");
+    setIsCreatingTemplate(true);
+
+    try {
+      const res = await createTaskFromTemplate(selectedTemplateId);
+      if (res.error && !res.task) {
+        setAddError(res.error);
+        return;
+      }
+      if (res.task) {
+        success(`Created ${formatTaskCode(res.task.task_code)}`);
+        setSelectedTask(res.task);
+        setSelectedTemplateId("");
+        router.refresh();
+      }
+      if (res.error) setAddError(res.error);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Could not create task from template.");
+    } finally {
+      setIsCreatingTemplate(false);
+    }
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -164,16 +220,47 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
       {/* Quick-add bar */}
       {isAdmin && (
         <div className="mb-4">
-          <input
-            ref={quickAddRef}
-            type="text"
-            placeholder="Add a task..."
-            value={quickAdd}
-            onChange={(e) => setQuickAdd(e.target.value)}
-            onKeyDown={handleQuickAdd}
-            disabled={isAdding}
-            className="w-full px-4 py-2.5 text-[13.5px] border border-stone-200 rounded-xl bg-white text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-1 focus:ring-stone-300 focus:border-stone-300 transition-colors disabled:opacity-60"
-          />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              ref={quickAddRef}
+              type="text"
+              placeholder="Add a task..."
+              value={quickAdd}
+              onChange={(e) => { setQuickAdd(e.target.value); if (addError) setAddError(""); }}
+              onKeyDown={handleQuickAdd}
+              disabled={isAdding}
+              className="flex-1 min-w-0 px-4 py-2.5 text-[13.5px] border border-stone-200 rounded-xl bg-white text-stone-800 placeholder-stone-300 focus:outline-none focus:ring-1 focus:ring-stone-300 focus:border-stone-300 transition-colors disabled:opacity-60"
+            />
+            <div className="flex gap-2 sm:w-auto">
+              <div className="relative flex-1 sm:w-56">
+                <ClipboardList size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-300 pointer-events-none" />
+                <select
+                  value={selectedTemplateId}
+                  onChange={(e) => { setSelectedTemplateId(e.target.value); if (addError) setAddError(""); }}
+                  disabled={isCreatingTemplate}
+                  className="w-full pl-8 pr-8 py-2.5 text-[13px] border border-stone-200 rounded-xl bg-white text-stone-700 focus:outline-none focus:ring-1 focus:ring-stone-300 focus:border-stone-300 transition-colors disabled:opacity-60 appearance-none"
+                >
+                  <option value="">Template</option>
+                  {TASK_TEMPLATES.map((template) => (
+                    <option key={template.id} value={template.id}>{template.label}</option>
+                  ))}
+                </select>
+                <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-300 pointer-events-none" />
+              </div>
+              <button
+                onClick={handleCreateFromTemplate}
+                disabled={!selectedTemplateId || isCreatingTemplate}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-[12.5px] font-medium text-white rounded-xl transition-colors disabled:opacity-40"
+                style={{ background: "#415445" }}
+              >
+                {isCreatingTemplate ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                Use
+              </button>
+            </div>
+          </div>
+          {addError && (
+            <p className="mt-2 text-[12px] text-red-600">{addError}</p>
+          )}
         </div>
       )}
 
@@ -182,19 +269,20 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
         className={`flex items-center gap-3 mb-5 flex-wrap transition-opacity ${isPending ? "opacity-60" : ""}`}
       >
         {/* View switcher */}
-        <div className="flex items-center bg-stone-100 rounded-lg p-0.5 gap-px">
+        <div className="flex items-center bg-stone-100 rounded-lg p-0.5 gap-px overflow-x-auto flex-shrink-0">
           {VIEWS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setView(id)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors ${
+              title={label}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-colors whitespace-nowrap ${
                 view === id
                   ? "bg-white text-stone-800 shadow-sm"
                   : "text-stone-500 hover:text-stone-700"
               }`}
             >
               <Icon size={12} />
-              {label}
+              <span className="hidden sm:inline">{label}</span>
             </button>
           ))}
         </div>
@@ -450,6 +538,8 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
       {view === "list" && (
         <>
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
+            <div className="overflow-x-auto">
+            <div className="min-w-[700px]">
             <div className="grid grid-cols-[5rem_1fr_8rem_7rem_7rem_6rem_4rem_8rem] gap-3 px-4 py-2.5 bg-stone-50 border-b border-stone-100">
               {["Code", "Task", "Status", "Priority", "Category", "Due", "Age", "Last Update"].map((h) => (
                 <span key={h} className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">
@@ -521,13 +611,15 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
                 })
               )}
             </div>
+            </div>
+            </div>
           </div>
         </>
       )}
 
       {view === "kanban" && (
         <TasksKanban
-          tasks={tasks}
+          tasks={optimisticTasks}
           showClosed={showClosed}
           onTaskClick={(t) => setSelectedTask(t)}
           onQuickAddFocus={() => quickAddRef.current?.focus()}
@@ -543,7 +635,7 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
 
       {view === "gantt" && (
         <TasksGantt
-          tasks={tasks}
+          tasks={optimisticTasks}
           ganttMode={ganttMode}
           groupBy={ganttGroupBy}
           onTaskClick={(t) => setSelectedTask(t)}

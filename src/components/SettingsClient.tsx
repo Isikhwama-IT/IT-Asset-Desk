@@ -6,7 +6,7 @@ import { Pencil, Trash2, Plus, Check, X, Save } from "lucide-react";
 import {
   createLookupItem, updateLookupItem, deleteLookupItem,
   createLocation, updateLocation, deleteLocation,
-  updateAppSetting,
+  updateAppSetting, insertAppSetting,
 } from "@/lib/actions";
 import type { Category, Status, Department, Location, JobLevel } from "@/types/database";
 
@@ -19,6 +19,7 @@ interface Props {
   locations: Location[];
   jobLevels: JobLevel[];
   warrantyAlertDays: number;
+  snmpAutoPollEnabled: boolean;
 }
 
 const TABS = [
@@ -190,12 +191,14 @@ function LookupTab({
 
 // ─── General Tab ─────────────────────────────────────────────────────────────
 
-function GeneralTab({ warrantyAlertDays }: { warrantyAlertDays: number }) {
+function GeneralTab({ warrantyAlertDays, snmpAutoPollEnabled }: { warrantyAlertDays: number; snmpAutoPollEnabled: boolean }) {
   const router = useRouter();
   const [days, setDays] = useState(String(warrantyAlertDays));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [snmpEnabled, setSnmpEnabled] = useState(snmpAutoPollEnabled);
+  const [snmpSaving, startSnmpSave] = useTransition();
 
   async function handleSave() {
     const num = parseInt(days, 10);
@@ -210,43 +213,80 @@ function GeneralTab({ warrantyAlertDays }: { warrantyAlertDays: number }) {
     router.refresh();
   }
 
+  function toggleSnmpPoll() {
+    const next = !snmpEnabled;
+    setSnmpEnabled(next);
+    startSnmpSave(async () => {
+      await insertAppSetting("snmp_auto_poll_enabled", String(next));
+      router.refresh();
+    });
+  }
+
   return (
-    <div className="bg-white rounded-xl border border-stone-200 p-5">
-      <p className="text-[13px] font-medium text-stone-800 mb-1">Warranty & EOL Alert Threshold</p>
-      <p className="text-[12px] text-stone-500 mb-4">
-        Show a warning on the dashboard for assets whose warranty or end-of-life date falls within this many days.
-      </p>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 border border-stone-200 rounded-lg px-3 py-2 bg-white">
-          <input
-            type="number"
-            min={1}
-            value={days}
-            onChange={(e) => { setDays(e.target.value); setError(""); setSaved(false); }}
-            className="w-16 text-[13.5px] text-stone-800 focus:outline-none"
-          />
-          <span className="text-[12px] text-stone-400">days</span>
+    <div className="space-y-4">
+      <div className="bg-white rounded-xl border border-stone-200 p-5">
+        <p className="text-[13px] font-medium text-stone-800 mb-1">Warranty & EOL Alert Threshold</p>
+        <p className="text-[12px] text-stone-500 mb-4">
+          Show a warning on the dashboard for assets whose warranty or end-of-life date falls within this many days.
+        </p>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 border border-stone-200 rounded-lg px-3 py-2 bg-white">
+            <input
+              type="number"
+              min={1}
+              value={days}
+              onChange={(e) => { setDays(e.target.value); setError(""); setSaved(false); }}
+              className="w-16 text-[13.5px] text-stone-800 focus:outline-none"
+            />
+            <span className="text-[12px] text-stone-400">days</span>
+          </div>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2 text-[12.5px] font-medium text-white rounded-lg transition-colors disabled:opacity-50 btn-press"
+            style={{ background: "#C04F28" }}
+          >
+            {saving ? (
+              <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : saved ? (
+              <Check size={13} />
+            ) : (
+              <Save size={13} />
+            )}
+            {saved ? "Saved" : "Save"}
+          </button>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="flex items-center gap-1.5 px-4 py-2 text-[12.5px] font-medium text-white rounded-lg transition-colors disabled:opacity-50 btn-press"
-          style={{ background: "#C04F28" }}
-        >
-          {saving ? (
-            <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-          ) : saved ? (
-            <Check size={13} />
-          ) : (
-            <Save size={13} />
-          )}
-          {saved ? "Saved" : "Save"}
-        </button>
+        {error && <p className="text-[11.5px] text-red-500 mt-2">{error}</p>}
       </div>
-      {error && <p className="text-[11.5px] text-red-500 mt-2">{error}</p>}
+
+      <div className="bg-white rounded-xl border border-stone-200 p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[13px] font-medium text-stone-800 mb-0.5">Automatic SNMP Polling</p>
+            <p className="text-[12px] text-stone-500">
+              Controls whether the background poll daemon runs automatically on its schedule.
+              Manual polling via the &ldquo;Poll All&rdquo; button is always available.
+            </p>
+          </div>
+          <button
+            onClick={toggleSnmpPoll}
+            disabled={snmpSaving}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none flex-shrink-0 ml-4 disabled:opacity-50 ${snmpEnabled ? "bg-emerald-500" : "bg-stone-200"}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${snmpEnabled ? "translate-x-6" : "translate-x-1"}`}
+            />
+          </button>
+        </div>
+        {!snmpEnabled && (
+          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
+            Auto-polling is off. The daemon checks this setting each cycle — if you run it via Windows Task Scheduler, it will also respect this toggle. Manual polling still works.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -254,19 +294,19 @@ function GeneralTab({ warrantyAlertDays }: { warrantyAlertDays: number }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function SettingsClient({
-  categories, statuses, departments, locations, jobLevels, warrantyAlertDays,
+  categories, statuses, departments, locations, jobLevels, warrantyAlertDays, snmpAutoPollEnabled,
 }: Props) {
   const [activeTab, setActiveTab] = useState<TabKey>("general");
 
   return (
     <div className="fade-up">
       {/* Tab bar */}
-      <div className="flex gap-1 mb-6 border-b border-stone-200">
+      <div className="flex gap-1 mb-6 border-b border-stone-200 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="px-4 py-2 text-[13px] font-medium transition-colors border-b-2 -mb-px"
+            className="px-4 py-2 text-[13px] font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
             style={{
               borderBottomColor: activeTab === tab.key ? "#C04F28" : "transparent",
               color: activeTab === tab.key ? "#C04F28" : undefined,
@@ -278,7 +318,7 @@ export default function SettingsClient({
       </div>
 
       {/* Tab content */}
-      {activeTab === "general" && <GeneralTab warrantyAlertDays={warrantyAlertDays} />}
+      {activeTab === "general" && <GeneralTab warrantyAlertDays={warrantyAlertDays} snmpAutoPollEnabled={snmpAutoPollEnabled} />}
       {activeTab === "categories" && <LookupTab items={categories} table="categories" />}
       {activeTab === "statuses" && <LookupTab items={statuses} table="statuses" />}
       {activeTab === "departments" && <LookupTab items={departments} table="departments" />}

@@ -104,13 +104,13 @@ export default function AuditClient({ logs }: { logs: ActivityLog[] }) {
   return (
     <div className="fade-up">
       {/* Controls */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="flex gap-1 border-b border-stone-200 flex-1">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-5">
+        <div className="flex gap-1 border-b border-stone-200 flex-1 overflow-x-auto w-full">
           {FILTERS.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className="px-4 py-2 text-[13px] font-medium transition-colors border-b-2 -mb-px whitespace-nowrap"
+              className="px-4 py-2 text-[13px] font-medium transition-colors border-b-2 -mb-px whitespace-nowrap flex-shrink-0"
               style={{
                 borderBottomColor: filter === f.key ? "#C04F28" : "transparent",
                 color: filter === f.key ? "#C04F28" : undefined,
@@ -120,14 +120,14 @@ export default function AuditClient({ logs }: { logs: ActivityLog[] }) {
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 border border-stone-200 rounded-lg px-3 py-2 bg-white">
-          <Search size={13} className="text-stone-400" />
+        <div className="flex items-center gap-2 border border-stone-200 rounded-lg px-3 py-2 bg-white w-full sm:w-auto">
+          <Search size={13} className="text-stone-400 flex-shrink-0" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search user, action, IP…"
-            className="text-[13px] text-stone-800 placeholder:text-stone-300 focus:outline-none w-48"
+            className="text-[13px] text-stone-800 placeholder:text-stone-300 focus:outline-none flex-1 min-w-0"
           />
         </div>
       </div>

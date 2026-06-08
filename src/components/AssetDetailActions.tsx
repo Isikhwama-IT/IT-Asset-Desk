@@ -45,7 +45,7 @@ export default function AssetDetailActions({
 
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setModal("status")}
           className="flex items-center gap-1.5 text-[12.5px] font-medium text-stone-600 border border-stone-200 px-3 py-2 rounded-lg hover:bg-stone-50 transition-colors"
@@ -81,7 +81,7 @@ export default function AssetDetailActions({
             <Trash2 size={13} /> Delete
           </button>
         ) : (
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[12px] text-red-600 font-medium">Delete this asset?</span>
             <button
               onClick={handleDelete}
