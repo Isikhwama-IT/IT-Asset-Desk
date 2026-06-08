@@ -272,12 +272,22 @@ export default function PeopleClientView({ contacts, assetsByContact, department
 
   const filtered = useMemo(() => {
     return contacts.filter((c) => {
-      const q = search.toLowerCase();
-      const matchSearch =
-        !q ||
-        c.full_name.toLowerCase().includes(q) ||
-        (c.email ?? "").toLowerCase().includes(q) ||
-        (c.printer_code != null && String(c.printer_code).includes(q));
+      const q = search.toLowerCase().trim();
+      let matchSearch = true;
+      if (q) {
+        const name = c.full_name.toLowerCase();
+        const email = (c.email ?? "").toLowerCase();
+        const code = c.printer_code != null ? String(c.printer_code) : "";
+        // Direct substring match covers single-word name, email, code
+        if (name.includes(q) || email.includes(q) || code.includes(q)) {
+          matchSearch = true;
+        } else {
+          // Multi-word: every token must appear somewhere in the full name
+          // e.g. "jason s" → ["jason","s"] → both in "jason stroebel"
+          const tokens = q.split(/\s+/).filter(Boolean);
+          matchSearch = tokens.length > 1 && tokens.every((t) => name.includes(t));
+        }
+      }
       const matchDept = !filterDept || c.department?.name === filterDept;
       const matchLevel = !filterLevel || c.job_level?.name === filterLevel;
       const matchActive =
