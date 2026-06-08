@@ -49,6 +49,7 @@ MARKER_COLUMNS = {
 }
 
 PRINTER_STATUS_MAP = {
+    "0": "ready",
     "1": "other",
     "2": "unknown",
     "3": "idle",
@@ -245,6 +246,7 @@ def _build_consumable_summary(consumables: List[Dict[str, Any]]) -> Dict[str, An
     fuser_pct = None
     waste_box_pct = None
     drum_pct = None
+    unmapped_toner_pct: Optional[int] = None  # toner with no detected colour (e.g. "TONER 4024MF")
 
     for consumable in consumables:
         pct = consumable.get("percent")
@@ -252,7 +254,11 @@ def _build_consumable_summary(consumables: List[Dict[str, Any]]) -> Dict[str, An
         colour = consumable.get("colour", "N/A")
 
         if kind == "toner":
-            _set_colour_value(toner, colour, pct)
+            if colour == "N/A":
+                if unmapped_toner_pct is None:
+                    unmapped_toner_pct = pct
+            else:
+                _set_colour_value(toner, colour, pct)
         elif kind == "developer":
             _set_colour_value(developer, colour, pct)
         elif kind == "fuser" and fuser_pct is None:
@@ -261,6 +267,11 @@ def _build_consumable_summary(consumables: List[Dict[str, Any]]) -> Dict[str, An
             waste_box_pct = pct
         elif kind == "drum" and drum_pct is None:
             drum_pct = pct
+
+    # Mono printers often have a generic description like "TONER 4024MF" with no colour keyword.
+    # If black is still unset but there is an unmapped toner entry, treat it as black.
+    if toner["black"] is None and unmapped_toner_pct is not None:
+        toner["black"] = unmapped_toner_pct
 
     return {
         "toner": toner,
