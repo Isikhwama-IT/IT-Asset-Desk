@@ -538,81 +538,121 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
       {view === "list" && (
         <>
           <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
-            <div className="overflow-x-auto">
-            <div className="min-w-[700px]">
-            <div className="grid grid-cols-[5rem_1fr_8rem_7rem_7rem_6rem_4rem_8rem] gap-3 px-4 py-2.5 bg-stone-50 border-b border-stone-100">
-              {["Code", "Task", "Status", "Priority", "Category", "Due", "Age", "Last Update"].map((h) => (
-                <span key={h} className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">
-                  {h}
-                </span>
-              ))}
-            </div>
+            {sorted.length === 0 ? (
+              <div className="py-16 flex flex-col items-center gap-3 text-center">
+                <div className="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center">
+                  <ListTodo size={18} className="text-stone-400" />
+                </div>
+                <div>
+                  <p className="text-[13px] text-stone-500 font-medium">No tasks found</p>
+                  <p className="text-[12px] text-stone-400 mt-0.5">
+                    {hasFilters
+                      ? "Try adjusting your filters"
+                      : isAdmin
+                      ? "Type a task title above and press Enter to add one"
+                      : "No active tasks at the moment"}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Mobile: compact rows */}
+                <div className="divide-y divide-stone-50 sm:hidden">
+                  {sorted.map((task) => {
+                    const statusCfg   = getTaskStatusConfig(task.status);
+                    const priorityCfg = getTaskPriorityConfig(task.priority);
+                    const isTemp = task.id.startsWith("temp-");
+                    let dueCls = "text-stone-400";
+                    if (task.due_date) {
+                      if (task.due_date < today)        dueCls = "text-red-500";
+                      else if (task.due_date === today) dueCls = "text-amber-500";
+                    }
+                    return (
+                      <button
+                        key={task.id}
+                        onClick={() => !isTemp && setSelectedTask(task)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                          isTemp ? "opacity-50 cursor-default" : "hover:bg-stone-50 cursor-pointer"
+                        } ${selectedTask?.id === task.id ? "bg-stone-50" : ""}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusCfg.dot}`} />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[13px] text-stone-800 truncate">{task.title}</span>
+                          <span className="block text-[11px] text-stone-400 mt-0.5">
+                            {isTemp ? "—" : formatTaskCode(task.task_code)}
+                            {task.due_date && (
+                              <span className={`ml-2 ${dueCls}`}>
+                                · {new Date(task.due_date + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <Badge label={task.priority} cfg={priorityCfg} />
+                          <Badge label={task.status} cfg={statusCfg} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
 
-            <div className="divide-y divide-stone-50">
-              {sorted.length === 0 ? (
-                <div className="py-16 flex flex-col items-center gap-3 text-center">
-                  <div className="w-10 h-10 rounded-xl bg-stone-100 flex items-center justify-center">
-                    <ListTodo size={18} className="text-stone-400" />
-                  </div>
-                  <div>
-                    <p className="text-[13px] text-stone-500 font-medium">No tasks found</p>
-                    <p className="text-[12px] text-stone-400 mt-0.5">
-                      {hasFilters
-                        ? "Try adjusting your filters"
-                        : isAdmin
-                        ? "Type a task title above and press Enter to add one"
-                        : "No active tasks at the moment"}
-                    </p>
+                {/* Desktop: full grid table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <div className="min-w-[860px]">
+                    <div className="grid grid-cols-[5rem_1fr_8rem_7rem_7rem_6rem_4rem_8rem] gap-3 px-4 py-2.5 bg-stone-50 border-b border-stone-100">
+                      {["Code", "Task", "Status", "Priority", "Category", "Due", "Age", "Last Update"].map((h) => (
+                        <span key={h} className="text-[11px] font-medium text-stone-400 uppercase tracking-wider">
+                          {h}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="divide-y divide-stone-50">
+                      {sorted.map((task) => {
+                        const statusCfg   = getTaskStatusConfig(task.status);
+                        const priorityCfg = getTaskPriorityConfig(task.priority);
+                        const isTemp = task.id.startsWith("temp-");
+                        const lastUpdate = lastActivityDate(task.task_updates);
+                        let dueCls = "text-stone-500";
+                        if (task.due_date) {
+                          if (task.due_date < today)        dueCls = "text-red-600 font-medium";
+                          else if (task.due_date === today) dueCls = "text-amber-600 font-medium";
+                        }
+                        return (
+                          <button
+                            key={task.id}
+                            onClick={() => !isTemp && setSelectedTask(task)}
+                            className={`w-full grid grid-cols-[5rem_1fr_8rem_7rem_7rem_6rem_4rem_8rem] gap-3 px-4 py-3 items-center text-left hover:bg-stone-50 transition-colors ${
+                              isTemp ? "opacity-50 cursor-default" : "cursor-pointer"
+                            } ${selectedTask?.id === task.id ? "bg-stone-50" : ""}`}
+                          >
+                            <span className="text-[12px] font-mono text-stone-400">
+                              {isTemp ? "—" : formatTaskCode(task.task_code)}
+                            </span>
+                            <span className="text-[13px] text-stone-800 truncate">{task.title}</span>
+                            <Badge label={task.status} cfg={statusCfg} />
+                            <Badge label={task.priority} cfg={priorityCfg} />
+                            <span className="text-[12px] text-stone-500 truncate">
+                              {task.category ?? <span className="text-stone-300">—</span>}
+                            </span>
+                            <span className={`text-[12px] ${task.due_date ? dueCls : "text-stone-300"}`}>
+                              {task.due_date
+                                ? new Date(task.due_date + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
+                                : "—"}
+                            </span>
+                            <span className="text-[12px] text-stone-400 tabular-nums">
+                              {daysSince(task.created_at)}d
+                            </span>
+                            <span className="text-[12px] text-stone-400 truncate">
+                              {lastUpdate ? `${daysSince(lastUpdate)}d ago` : "No updates"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              ) : (
-                sorted.map((task) => {
-                  const statusCfg  = getTaskStatusConfig(task.status);
-                  const priorityCfg = getTaskPriorityConfig(task.priority);
-                  const isTemp = task.id.startsWith("temp-");
-                  const lastUpdate = lastActivityDate(task.task_updates);
-
-                  let dueCls = "text-stone-500";
-                  if (task.due_date) {
-                    if (task.due_date < today)   dueCls = "text-red-600 font-medium";
-                    else if (task.due_date === today) dueCls = "text-amber-600 font-medium";
-                  }
-
-                  return (
-                    <button
-                      key={task.id}
-                      onClick={() => !isTemp && setSelectedTask(task)}
-                      className={`w-full grid grid-cols-[5rem_1fr_8rem_7rem_7rem_6rem_4rem_8rem] gap-3 px-4 py-3 items-center text-left hover:bg-stone-50 transition-colors ${
-                        isTemp ? "opacity-50 cursor-default" : "cursor-pointer"
-                      } ${selectedTask?.id === task.id ? "bg-stone-50" : ""}`}
-                    >
-                      <span className="text-[12px] font-mono text-stone-400">
-                        {isTemp ? "—" : formatTaskCode(task.task_code)}
-                      </span>
-                      <span className="text-[13px] text-stone-800 truncate">{task.title}</span>
-                      <Badge label={task.status} cfg={statusCfg} />
-                      <Badge label={task.priority} cfg={priorityCfg} />
-                      <span className="text-[12px] text-stone-500 truncate">
-                        {task.category ?? <span className="text-stone-300">—</span>}
-                      </span>
-                      <span className={`text-[12px] ${task.due_date ? dueCls : "text-stone-300"}`}>
-                        {task.due_date
-                          ? new Date(task.due_date + "T00:00:00").toLocaleDateString("en-ZA", { day: "numeric", month: "short" })
-                          : "—"}
-                      </span>
-                      <span className="text-[12px] text-stone-400 tabular-nums">
-                        {daysSince(task.created_at)}d
-                      </span>
-                      <span className="text-[12px] text-stone-400 truncate">
-                        {lastUpdate ? `${daysSince(lastUpdate)}d ago` : "No updates"}
-                      </span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-            </div>
-            </div>
+              </>
+            )}
           </div>
         </>
       )}
