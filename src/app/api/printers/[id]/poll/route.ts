@@ -151,7 +151,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
 
   const { data: printer, error: printerError } = await supabase
     .from("printers")
-    .select("id, name, ip_address, model, status, snmp_enabled")
+    .select("id, name, ip_address, model, status, snmp_enabled, last_meter_reading")
     .eq("id", id)
     .single();
 
@@ -189,6 +189,13 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
       ? (result.raw_data as Record<string, Json>)
       : {};
 
+  const pagesDelta =
+    typeof result.total_pages === "number" &&
+    Number.isFinite(result.total_pages) &&
+    typeof printer.last_meter_reading === "number"
+      ? Math.max(0, result.total_pages - printer.last_meter_reading)
+      : null;
+
   const reading: ReadingInsert = {
     printer_id: printer.id,
     polled_at: polledAt,
@@ -209,6 +216,7 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
     fuser_pct: clampPct(result.fuser_pct),
     waste_box_pct: clampPct(result.waste_box_pct),
     drum_pct: clampPct(result.drum_pct),
+    pages_since_last_poll: pagesDelta,
     raw_data: {
       ...rawDataRecord,
       consumables: result.consumables ?? [],

@@ -61,15 +61,15 @@ async function getMonitorData() {
     .select("id, printer_id", { count: "exact" })
     .in("status", ["Open", "In Progress"]);
 
-  // This month's meter readings for page-count delta
+  // This month's SNMP delta readings for page-count
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const { data: meterReadings } = await supabase
-    .from("printer_meter_readings")
-    .select("printer_id, reading, reading_at")
+  const { data: snmpDeltas } = await supabase
+    .from("printer_snmp_readings")
+    .select("printer_id, pages_since_last_poll")
     .in("printer_id", printerIds)
-    .gte("reading_at", monthStart)
-    .order("reading_at");
+    .gte("polled_at", monthStart + "T00:00:00")
+    .not("pages_since_last_poll", "is", null);
 
   // ── Compute KPIs ─────────────────────────────────────────────────────────
 
@@ -80,25 +80,10 @@ async function getMonitorData() {
     ...new Set((openTicketData ?? []).map((t: { printer_id: string }) => t.printer_id)),
   ].map((id) => nameById[id]).filter((n): n is string => Boolean(n));
 
-  // Pages this month: max − min per printer within the month
-  const readingsByPrinter: Record<string, number[]> = {};
-  for (const r of meterReadings ?? []) {
-    const pid = (r as { printer_id: string; reading: number }).printer_id;
-    const val = (r as { printer_id: string; reading: number }).reading;
-    if (!readingsByPrinter[pid]) readingsByPrinter[pid] = [];
-    readingsByPrinter[pid].push(val);
-  }
+  // Pages this month: sum of pages_since_last_poll deltas (Option B)
   let pagesThisMonth = 0;
-  let colourPrinterPages = 0;
-  let monoPrinterPages = 0;
-  for (const [pid, vals] of Object.entries(readingsByPrinter)) {
-    if (vals.length === 0) continue;
-    const delta = Math.max(...vals) - Math.min(...vals);
-    pagesThisMonth += delta;
-    const reading = latestByPrinter[pid];
-    const isColour = reading && (reading.cyan_toner_pct !== null || reading.magenta_toner_pct !== null);
-    if (isColour) colourPrinterPages += delta;
-    else monoPrinterPages += delta;
+  for (const r of (snmpDeltas ?? []) as { printer_id: string; pages_since_last_poll: number }[]) {
+    pagesThisMonth += r.pages_since_last_poll;
   }
 
   // ── Compute alerts ────────────────────────────────────────────────────────

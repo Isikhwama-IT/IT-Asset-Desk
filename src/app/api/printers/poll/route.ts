@@ -52,6 +52,7 @@ type FleetPrinter = {
   status: string;
   location_id: string | null;
   snmp_enabled: boolean;
+  last_meter_reading: number | null;
   locations?: { name: string | null } | null;
 };
 
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest) {
   // Fetch candidates first so disabled SNMP records can be reported instead of silently skipped.
   let query = supabase
     .from("printers")
-    .select("id, name, ip_address, model, status, location_id, snmp_enabled, locations(name)")
+    .select("id, name, ip_address, model, status, location_id, snmp_enabled, last_meter_reading, locations(name)")
     .not("ip_address", "is", null)
     .is("archived_at", null);
 
@@ -226,6 +227,13 @@ export async function POST(request: NextRequest) {
         ? (result.raw_data as Record<string, Json>)
         : {};
 
+      const pagesDelta =
+        typeof result.total_pages === "number" &&
+        Number.isFinite(result.total_pages) &&
+        typeof printer.last_meter_reading === "number"
+          ? Math.max(0, result.total_pages - printer.last_meter_reading)
+          : null;
+
       const reading: ReadingInsert = {
         printer_id: printer.id,
         polled_at: polledAt,
@@ -246,6 +254,7 @@ export async function POST(request: NextRequest) {
         fuser_pct: clampPct(result.fuser_pct),
         waste_box_pct: clampPct(result.waste_box_pct),
         drum_pct: clampPct(result.drum_pct),
+        pages_since_last_poll: pagesDelta,
         raw_data: {
           ...rawDataRecord,
           consumables: result.consumables ?? [],

@@ -153,7 +153,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
   const [
     { data: snmpReadings },
     { data: meterReadings, count: totalReadings },
-    { data: monthMeters },
+    { data: snmpDeltas },
     { data: openTicketData, count: openTickets },
     { data: allConsumableTypes },
     { data: printerTrays },
@@ -161,7 +161,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
   ] = await Promise.all([
     supabase.from("printer_snmp_readings").select("*").in("printer_id", printerIds).gte("polled_at", sevenDaysAgo).order("polled_at", { ascending: false }),
     supabase.from("printer_meter_readings").select("id, printer_id, reading, reading_at, notes", { count: "exact" }).in("printer_id", printerIds).order("reading_at", { ascending: false }).range(readingsOffset, readingsOffset + READINGS_PER_PAGE - 1),
-    supabase.from("printer_meter_readings").select("printer_id, reading, reading_at").in("printer_id", printerIds).gte("reading_at", monthStart).order("reading_at"),
+    supabase.from("printer_snmp_readings").select("printer_id, pages_since_last_poll, polled_at").in("printer_id", printerIds).gte("polled_at", monthStart + "T00:00:00").not("pages_since_last_poll", "is", null),
     supabase.from("printer_tickets").select("id, printer_id", { count: "exact" }).in("status", ["Open", "In Progress", "Waiting Supplier"]),
     supabase.from("consumable_types").select("*").order("part_number"),
     supabase.from("printer_trays").select("*").in("printer_id", printerIds).eq("is_active", true).order("sort_order"),
@@ -228,43 +228,33 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
 
   const today = now.toISOString().slice(0, 10);
 
-  // Group all month readings per printer, and separately group today's readings
-  const meterByPrinter: Record<string, number[]> = {};
-  const todayMeterByPrinter: Record<string, number[]> = {};
-  for (const r of (monthMeters ?? []) as { printer_id: string; reading: number; reading_at: string }[]) {
-    if (!meterByPrinter[r.printer_id]) meterByPrinter[r.printer_id] = [];
-    meterByPrinter[r.printer_id].push(r.reading);
-    if (r.reading_at === today) {
-      if (!todayMeterByPrinter[r.printer_id]) todayMeterByPrinter[r.printer_id] = [];
-      todayMeterByPrinter[r.printer_id].push(r.reading);
+  // Delta-based page counts from SNMP readings (Option B)
+  const deltaMonthByPrinter: Record<string, number> = {};
+  const deltaTodayByPrinter: Record<string, number> = {};
+  const hasSnmpMonthData = new Set<string>();
+  const hasSnmpTodayData = new Set<string>();
+  for (const r of (snmpDeltas ?? []) as { printer_id: string; pages_since_last_poll: number; polled_at: string }[]) {
+    const pid = r.printer_id;
+    const delta = r.pages_since_last_poll;
+    deltaMonthByPrinter[pid] = (deltaMonthByPrinter[pid] ?? 0) + delta;
+    hasSnmpMonthData.add(pid);
+    if (r.polled_at.startsWith(today)) {
+      deltaTodayByPrinter[pid] = (deltaTodayByPrinter[pid] ?? 0) + delta;
+      hasSnmpTodayData.add(pid);
     }
   }
-  let pagesThisMonth = 0, colourPrinterPages = 0, monoPrinterPages = 0;
-  for (const [pid, vals] of Object.entries(meterByPrinter)) {
-    if (vals.length < 2) continue;
-    const delta = Math.max(...vals) - Math.min(...vals);
-    pagesThisMonth += delta;
-    const printer = typedPrinters.find((p) => p.id === pid);
-    const capabilities = printer
-      ? getPrinterCapabilities(
-          printer,
-          (traysByPrinter[pid] ?? []).map((tray) => ({ ...tray, paper_size: tray.paper_size as PaperSize }))
-        )
-      : null;
-    if (capabilities?.isColour) colourPrinterPages += delta;
-    else monoPrinterPages += delta;
-  }
+  let pagesThisMonth = 0;
+  for (const pages of Object.values(deltaMonthByPrinter)) pagesThisMonth += pages;
 
-  // Fleet monthly cost estimate — sum per-printer cost using avg daily pages
+  // Fleet monthly cost estimate — sum per-printer cost using delta pages
   let fleetMonthlyCost: number | null = null;
   for (const printer of typedPrinters) {
     const types = consumableTypes.filter((consumable) =>
       isConsumableCompatibleWithPrinter(consumable, printer)
     );
     if (types.length === 0) continue;
-    const monthVals = meterByPrinter[printer.id];
-    if (!monthVals || monthVals.length < 2) continue;
-    const printerMonthPages = Math.max(...monthVals) - Math.min(...monthVals);
+    const printerMonthPages = deltaMonthByPrinter[printer.id];
+    if (printerMonthPages === undefined) continue;
     const est = computeCostEstimate(types, printerMonthPages);
     if (est.estimatedMonthlyCost !== null) {
       fleetMonthlyCost = (fleetMonthlyCost ?? 0) + est.estimatedMonthlyCost;
@@ -413,9 +403,7 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
 
     let sitePagesThisMonth = 0;
     for (const printer of sitePrinters) {
-      const vals = meterByPrinter[printer.id];
-      if (!vals || vals.length < 2) continue;
-      sitePagesThisMonth += Math.max(...vals) - Math.min(...vals);
+      sitePagesThisMonth += deltaMonthByPrinter[printer.id] ?? 0;
     }
 
     const siteStocks = paperStockByLocation[location.id] ?? [];
@@ -451,13 +439,10 @@ async function getAllData(params: SearchParams, readingsPage = 1) {
   // ── Per-printer D/M/T page stats ─────────────────────────────────────────────
   const pageStatsByPrinter: Record<string, { today: number | null; month: number | null }> = {};
   for (const p of typedPrinters) {
-    const monthVals = meterByPrinter[p.id];
-    const todayVals = todayMeterByPrinter[p.id];
-    const monthPages = monthVals && monthVals.length >= 2
-      ? Math.max(...monthVals) - Math.min(...monthVals) : null;
-    const todayPages = todayVals && todayVals.length >= 2
-      ? Math.max(...todayVals) - Math.min(...todayVals) : null;
-    pageStatsByPrinter[p.id] = { today: todayPages, month: monthPages };
+    pageStatsByPrinter[p.id] = {
+      today: hasSnmpTodayData.has(p.id) ? (deltaTodayByPrinter[p.id] ?? 0) : null,
+      month: hasSnmpMonthData.has(p.id) ? (deltaMonthByPrinter[p.id] ?? 0) : null,
+    };
   }
 
   const kpi: PrinterKpi = {

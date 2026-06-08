@@ -439,6 +439,7 @@ export interface Database {
           fuser_pct: number | null;
           waste_box_pct: number | null;
           drum_pct: number | null;
+          pages_since_last_poll: number | null;
           raw_data: Json | null;
           created_at: string;
         };
@@ -463,6 +464,7 @@ export interface Database {
           fuser_pct?: number | null;
           waste_box_pct?: number | null;
           drum_pct?: number | null;
+          pages_since_last_poll?: number | null;
           raw_data?: Json | null;
           created_at?: string;
         };
@@ -487,6 +489,7 @@ export interface Database {
           fuser_pct?: number | null;
           waste_box_pct?: number | null;
           drum_pct?: number | null;
+          pages_since_last_poll?: number | null;
           raw_data?: Json | null;
           created_at?: string;
         };

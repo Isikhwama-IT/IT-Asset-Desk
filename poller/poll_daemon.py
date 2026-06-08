@@ -185,6 +185,13 @@ def poll_and_save(printer: Dict[str, Any], dry_run: bool = False) -> Tuple[bool,
     toner = result.get("toner") or {"black": None, "cyan": None, "magenta": None, "yellow": None}
     alert_text = result.get("error_description") or ""
 
+    # Compute pages printed since last poll (Option B delta)
+    last_meter = printer.get("last_meter_reading")
+    total_pages_raw = result.get("total_pages")
+    if (isinstance(total_pages_raw, (int, float)) and math.isfinite(total_pages_raw) and
+            isinstance(last_meter, (int, float)) and math.isfinite(last_meter)):
+        reading["pages_since_last_poll"] = max(0, int(total_pages_raw) - int(last_meter))
+
     # ── Structured log line ────────────────────────────────────────────────────
     status_word = "ONLINE" if is_online else "OFFLINE"
     pages_str = f"pages={reading['total_pages']}" if reading["total_pages"] is not None else "pages=n/a"

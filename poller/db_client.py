@@ -48,7 +48,7 @@ def fetch_active_printers() -> List[Dict[str, Any]]:
         "printers"
         "?snmp_enabled=eq.true"
         "&archived_at=is.null"
-        "&select=id,name,ip_address,model,status,snmp_enabled"
+        "&select=id,name,ip_address,model,status,snmp_enabled,last_meter_reading"
     )
 
 
