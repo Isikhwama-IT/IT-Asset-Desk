@@ -1029,6 +1029,7 @@ export interface Database {
           category: string | null;
           source: string | null;
           due_date: string | null;
+          location_id: string | null;
           created_at: string;
           updated_at: string;
           archived_at: string | null;
@@ -1044,6 +1045,7 @@ export interface Database {
           category?: string | null;
           source?: string | null;
           due_date?: string | null;
+          location_id?: string | null;
           created_at?: string;
           updated_at?: string;
           archived_at?: string | null;
@@ -1058,6 +1060,7 @@ export interface Database {
           category?: string | null;
           source?: string | null;
           due_date?: string | null;
+          location_id?: string | null;
           updated_at?: string;
           archived_at?: string | null;
         };
@@ -1262,6 +1265,7 @@ export type Task = {
   category: TaskCategory | null;
   source: TaskSource | null;
   due_date: string | null;
+  location_id: string | null;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
@@ -1269,6 +1273,7 @@ export type Task = {
 
 export type TaskWithActivity = Task & {
   task_updates: { created_at: string; body?: string }[];
+  location?: { id: string; name: string } | null;
 };
 
 export type TaskUpdate = {

@@ -1983,7 +1983,7 @@ export async function createTask(title: string): Promise<{ error: string | null;
 
   if (error) return { error: error.message, task: null };
   revalidatePath("/tasks");
-  return { error: null, task: { ...data, task_updates: [] } as TaskWithActivity };
+  return { error: null, task: { ...data, location_id: null, task_updates: [] } as unknown as TaskWithActivity };
 }
 
 export async function createTaskFromTemplate(
@@ -2024,13 +2024,13 @@ export async function createTaskFromTemplate(
       revalidatePath("/tasks");
       return {
         error: `Task created, but checklist failed: ${checklistError.message}`,
-        task: { ...data, task_updates: [] } as TaskWithActivity,
+        task: { ...data, location_id: null, task_updates: [] } as unknown as TaskWithActivity,
       };
     }
   }
 
   revalidatePath("/tasks");
-  return { error: null, task: { ...data, task_updates: [] } as TaskWithActivity };
+  return { error: null, task: { ...data, location_id: null, task_updates: [] } as unknown as TaskWithActivity };
 }
 
 // Import Notion objectives and create tasks from them (idempotent)
@@ -2082,7 +2082,7 @@ export async function importNotionObjectives(): Promise<{ error: string | null; 
 
 export async function updateTaskField(
   id: string,
-  field: "title" | "priority" | "category" | "source" | "due_date",
+  field: "title" | "priority" | "category" | "source" | "due_date" | "location_id",
   value: string | null
 ): Promise<{ error: string | null }> {
   const { error: authError, supabase } = await getAuthenticatedAdmin();

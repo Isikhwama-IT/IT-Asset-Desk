@@ -257,6 +257,7 @@ export default function TasksCalendar({ data, onTaskClick }: Props) {
                               category: null,
                               source: null,
                               due_date: null,
+                              location_id: null,
                               created_at: new Date().toISOString(),
                               updated_at: new Date().toISOString(),
                               archived_at: null,

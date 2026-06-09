@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, GitBranch, Loader2, Plus, Search, Trash2, UserCheck, UserX, X } from "lucide-react";
+import { Check, GitBranch, Loader2, MapPin, Plus, Search, Trash2, UserCheck, UserX, X } from "lucide-react";
 import {
   addTaskChecklistItem,
   addTaskDependency,
@@ -95,6 +95,8 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
   const [category, setCategory] = useState(task?.category ?? "");
   const [source, setSource] = useState(task?.source ?? "");
   const [dueDate, setDueDate] = useState(task?.due_date ?? "");
+  const [locationId, setLocationId] = useState(task?.location_id ?? "");
+  const [locations, setLocations] = useState<{ id: string; name: string }[]>([]);
 
   // ── Thread state ───────────────────────────────────────────────────────────
   const [updates, setUpdates] = useState<TaskUpdate[]>([]);
@@ -136,7 +138,12 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
   const [deleteError, setDeleteError] = useState("");
 
   // ── Init ───────────────────────────────────────────────────────────────────
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    const supabase = createSupabaseBrowserClient();
+    supabase.from("locations").select("id, name").eq("is_active", true).order("name")
+      .then(({ data }) => { if (data) setLocations(data as { id: string; name: string }[]); });
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -155,6 +162,7 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
     setCategory(task.category ?? "");
     setSource(task.source ?? "");
     setDueDate(task.due_date ?? "");
+    setLocationId(task.location_id ?? "");
     setPendingStatus(null);
     setStatusReason("");
     setEditingTitle(false);
@@ -288,7 +296,7 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
     onUpdated();
   }
 
-  async function saveField(field: "priority" | "category" | "source" | "due_date", value: string) {
+  async function saveField(field: "priority" | "category" | "source" | "due_date" | "location_id", value: string | null) {
     if (!task) return;
     await updateTaskField(task.id, field, value || null);
     onUpdated();
@@ -982,6 +990,26 @@ export function TaskPanel({ task, onClose, onUpdated }: Props) {
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
+                  </FieldRow>
+
+                  {/* Site */}
+                  <FieldRow label="Site">
+                    <select
+                      value={locationId}
+                      onChange={(e) => { setLocationId(e.target.value); saveField("location_id", e.target.value || null); }}
+                      className="w-full px-3 py-1.5 text-[13px] text-stone-800 border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-300"
+                    >
+                      <option value="">— None —</option>
+                      {locations.map((l) => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                    {locationId && (
+                      <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-stone-500">
+                        <MapPin size={10} className="text-stone-400" />
+                        {locations.find((l) => l.id === locationId)?.name}
+                      </div>
+                    )}
                   </FieldRow>
 
                   {/* Due date */}

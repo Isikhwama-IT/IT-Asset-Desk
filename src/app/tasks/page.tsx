@@ -132,7 +132,7 @@ async function getListData(params: SearchParams) {
 
   let query = supabase
     .from("tasks")
-    .select("*, task_updates(created_at)", { count: "exact" })
+    .select("*, task_updates(created_at), location:locations(id,name)", { count: "exact" })
     .is("archived_at", null);
 
   if (hasStatusFilter) {
@@ -155,7 +155,7 @@ async function getListData(params: SearchParams) {
   }
 
   const { data, count } = await query.order("created_at", { ascending: false });
-  return { tasks: (data ?? []) as TaskWithActivity[], total: count ?? 0 };
+  return { tasks: (data ?? []) as unknown as TaskWithActivity[], total: count ?? 0 };
 }
 
 // ─── Kanban data ─────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ async function getKanbanData(params: SearchParams) {
   // Fetch ALL non-archived tasks (all 7 statuses) with last update body
   let query = supabase
     .from("tasks")
-    .select("*, task_updates(body, created_at)", { count: "exact" })
+    .select("*, task_updates(body, created_at), location:locations(id,name)", { count: "exact" })
     .is("archived_at", null);
 
   // Kanban ignores the status URL param — columns handle visibility
@@ -184,7 +184,7 @@ async function getKanbanData(params: SearchParams) {
   }
 
   const { data, count } = await query.order("created_at", { ascending: false });
-  return { tasks: (data ?? []) as TaskWithActivity[], total: count ?? 0 };
+  return { tasks: (data ?? []) as unknown as TaskWithActivity[], total: count ?? 0 };
 }
 
 // ─── Calendar data ────────────────────────────────────────────────────────────
