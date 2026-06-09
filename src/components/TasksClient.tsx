@@ -64,9 +64,10 @@ interface Props {
   activeCount: number;
   dashboardData?: DashboardData;
   calendarData?: CalendarData;
+  locations?: { id: string; name: string }[];
 }
 
-export default function TasksClient({ view, tasks, total, dashboardData, calendarData }: Props) {
+export default function TasksClient({ view, tasks, total, dashboardData, calendarData, locations = [] }: Props) {
   const { isAdmin } = useAuth();
   const { success } = useToast();
   const router = useRouter();
@@ -566,6 +567,7 @@ export default function TasksClient({ view, tasks, total, dashboardData, calenda
               onSelectTask={setSelectedTask}
               hasFilters={hasFilters}
               isAdmin={isAdmin}
+              locations={locations}
             />
           ) : (
             <div className="bg-white rounded-xl border border-stone-200 overflow-hidden">
@@ -732,6 +734,7 @@ function SiteGroupedList({
   onSelectTask,
   hasFilters,
   isAdmin,
+  locations,
 }: {
   tasks: import("@/types/database").TaskWithActivity[];
   today: string;
@@ -739,13 +742,16 @@ function SiteGroupedList({
   onSelectTask: (t: import("@/types/database").TaskWithActivity) => void;
   hasFilters: boolean;
   isAdmin: boolean;
+  locations: { id: string; name: string }[];
 }) {
+  const locationNameById = Object.fromEntries(locations.map((l) => [l.id, l.name]));
+
   // Group tasks by site name
   const groups: { name: string; tasks: import("@/types/database").TaskWithActivity[] }[] = [];
   const groupMap = new Map<string, import("@/types/database").TaskWithActivity[]>();
 
   for (const task of tasks) {
-    const siteName = (task.location as { id: string; name: string } | null | undefined)?.name ?? "__none__";
+    const siteName = task.location_id ? (locationNameById[task.location_id] ?? "__none__") : "__none__";
     if (!groupMap.has(siteName)) groupMap.set(siteName, []);
     groupMap.get(siteName)!.push(task);
   }

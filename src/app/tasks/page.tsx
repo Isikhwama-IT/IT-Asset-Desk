@@ -132,7 +132,7 @@ async function getListData(params: SearchParams) {
 
   let query = supabase
     .from("tasks")
-    .select("*, task_updates(created_at), location:locations(id,name)", { count: "exact" })
+    .select("*, task_updates(created_at)", { count: "exact" })
     .is("archived_at", null);
 
   if (hasStatusFilter) {
@@ -155,7 +155,7 @@ async function getListData(params: SearchParams) {
   }
 
   const { data, count } = await query.order("created_at", { ascending: false });
-  return { tasks: (data ?? []) as unknown as TaskWithActivity[], total: count ?? 0 };
+  return { tasks: (data ?? []) as TaskWithActivity[], total: count ?? 0 };
 }
 
 // ─── Kanban data ─────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ async function getKanbanData(params: SearchParams) {
   // Fetch ALL non-archived tasks (all 7 statuses) with last update body
   let query = supabase
     .from("tasks")
-    .select("*, task_updates(body, created_at), location:locations(id,name)", { count: "exact" })
+    .select("*, task_updates(body, created_at)", { count: "exact" })
     .is("archived_at", null);
 
   // Kanban ignores the status URL param — columns handle visibility
@@ -184,7 +184,7 @@ async function getKanbanData(params: SearchParams) {
   }
 
   const { data, count } = await query.order("created_at", { ascending: false });
-  return { tasks: (data ?? []) as unknown as TaskWithActivity[], total: count ?? 0 };
+  return { tasks: (data ?? []) as TaskWithActivity[], total: count ?? 0 };
 }
 
 // ─── Calendar data ────────────────────────────────────────────────────────────
@@ -245,6 +245,16 @@ async function getActiveCount() {
   return count ?? 0;
 }
 
+async function getLocations(): Promise<{ id: string; name: string }[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("locations")
+    .select("id, name")
+    .eq("is_active", true)
+    .order("name");
+  return (data ?? []) as { id: string; name: string }[];
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function TasksPage({
@@ -255,13 +265,14 @@ export default async function TasksPage({
   const params = await searchParams;
   const view = params.view ?? "dashboard";
 
-  const [activeCount, viewData] = await Promise.all([
+  const [activeCount, viewData, locations] = await Promise.all([
     getActiveCount(),
     view === "list"     ? getListData(params)     :
     view === "kanban"   ? getKanbanData(params)   :
     view === "calendar" ? getCalendarData(params) :
     view === "gantt"    ? getListData(params)     :
     getDashboardData(),
+    getLocations(),
   ]);
 
   const isListLike = view === "list" || view === "kanban" || view === "gantt";
@@ -297,6 +308,7 @@ export default async function TasksPage({
         activeCount={activeCount}
         dashboardData={dashboardData}
         calendarData={calendarData}
+        locations={locations}
       />
     </div>
   );
