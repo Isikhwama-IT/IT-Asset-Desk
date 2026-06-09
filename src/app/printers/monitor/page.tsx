@@ -61,15 +61,23 @@ async function getMonitorData() {
     .select("id, printer_id", { count: "exact" })
     .in("status", ["Open", "In Progress"]);
 
-  // This month's SNMP delta readings for page-count
+  // This month's page counts: delta (Option B) with meter fallback
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const { data: snmpDeltas } = await supabase
-    .from("printer_snmp_readings")
-    .select("printer_id, pages_since_last_poll")
-    .in("printer_id", printerIds)
-    .gte("polled_at", monthStart + "T00:00:00")
-    .not("pages_since_last_poll", "is", null);
+  const [{ data: snmpDeltas }, { data: monthMeters }] = await Promise.all([
+    supabase
+      .from("printer_snmp_readings")
+      .select("printer_id, pages_since_last_poll")
+      .in("printer_id", printerIds)
+      .gte("polled_at", monthStart + "T00:00:00")
+      .not("pages_since_last_poll", "is", null),
+    supabase
+      .from("printer_meter_readings")
+      .select("printer_id, reading")
+      .in("printer_id", printerIds)
+      .gte("reading_at", monthStart)
+      .order("reading_at"),
+  ]);
 
   // ── Compute KPIs ─────────────────────────────────────────────────────────
 
@@ -80,10 +88,24 @@ async function getMonitorData() {
     ...new Set((openTicketData ?? []).map((t: { printer_id: string }) => t.printer_id)),
   ].map((id) => nameById[id]).filter((n): n is string => Boolean(n));
 
-  // Pages this month: sum of pages_since_last_poll deltas (Option B)
-  let pagesThisMonth = 0;
+  // Pages this month: delta sums if available, else meter max-min per printer
+  const deltaByPrinter: Record<string, number> = {};
   for (const r of (snmpDeltas ?? []) as { printer_id: string; pages_since_last_poll: number }[]) {
-    pagesThisMonth += r.pages_since_last_poll;
+    deltaByPrinter[r.printer_id] = (deltaByPrinter[r.printer_id] ?? 0) + r.pages_since_last_poll;
+  }
+  const meterValsByPrinter: Record<string, number[]> = {};
+  for (const r of (monthMeters ?? []) as { printer_id: string; reading: number }[]) {
+    if (!meterValsByPrinter[r.printer_id]) meterValsByPrinter[r.printer_id] = [];
+    meterValsByPrinter[r.printer_id].push(r.reading);
+  }
+  let pagesThisMonth = 0;
+  for (const pid of printerIds) {
+    if (deltaByPrinter[pid] !== undefined) {
+      pagesThisMonth += deltaByPrinter[pid];
+    } else {
+      const vals = meterValsByPrinter[pid];
+      if (vals && vals.length >= 2) pagesThisMonth += Math.max(...vals) - Math.min(...vals);
+    }
   }
 
   // ── Compute alerts ────────────────────────────────────────────────────────
