@@ -1177,6 +1177,176 @@ export interface Database {
           { foreignKeyName: "task_dependencies_depends_on_task_id_fkey"; columns: ["depends_on_task_id"]; referencedRelation: "tasks"; referencedColumns: ["id"] }
         ];
       };
+      onboarding_cases: {
+        Row: {
+          id: string; status: string; current_section: number;
+          hr_email_sent_at: string | null;
+          first_name: string | null; last_name: string | null; job_title: string | null; department: string | null;
+          manager_name: string | null; manager_email: string | null; phone: string | null;
+          location: string | null; start_date: string | null; email_address: string | null; printer_code: string | null;
+          laptop_tier: string | null; monitor_required: boolean; monitor_qty: number; colour_print_access: boolean;
+          sharepoint_sites: string[] | null; teams_channels: string[] | null;
+          distribution_lists: string[] | null; role_specific_software: string[] | null;
+          ashton_email_sent_at: string | null; ashton_contact_id: string | null; ashton_png_received: boolean;
+          upstream_license_sent_at: string | null; upstream_license_contact_id: string | null;
+          license_decision: string | null; license_cost: number | null;
+          acct_email_verified: boolean; acct_license_verified: boolean; acct_distro_verified: boolean;
+          acct_teams_verified: boolean; acct_sharepoint_verified: boolean;
+          procurement_pdf_sent_at: string | null;
+          rudi_approved: boolean; rudi_approved_at: string | null;
+          uzair_approved: boolean; uzair_approved_at: string | null;
+          finance_approved: boolean; finance_approved_at: string | null;
+          upstream_goahead_sent_at: string | null; upstream_goahead_contact_id: string | null;
+          collection_arranged_at: string | null;
+          upstream_collected_at: string | null; upstream_collection_contact_id: string | null;
+          upstream_confirmed_at: string | null; upstream_confirmed_contact_id: string | null;
+          dropoff_arranged_at: string | null;
+          email_signature_added: boolean; wifi_connected: boolean;
+          arr_policies: boolean; arr_assets_shown: boolean; arr_liability_signed: boolean;
+          arr_wifi_phone: boolean; arr_authenticator: boolean; arr_bitlocker: boolean; arr_pin: boolean;
+          arr_outlook: boolean; arr_teams: boolean; arr_onedrive: boolean;
+          arr_ticket_process: boolean; arr_printer_tutorial: boolean;
+          outstanding_items: string | null; completion_report_sent_at: string | null;
+          paperwork_filed: boolean; closed_at: string | null;
+          created_at: string; updated_at: string;
+        };
+        Insert: {
+          id?: string; status?: string; current_section?: number;
+          hr_email_sent_at?: string | null;
+          first_name?: string | null; last_name?: string | null; job_title?: string | null; department?: string | null;
+          manager_name?: string | null; manager_email?: string | null; phone?: string | null;
+          location?: string | null; start_date?: string | null; email_address?: string | null; printer_code?: string | null;
+          laptop_tier?: string | null; monitor_required?: boolean; monitor_qty?: number; colour_print_access?: boolean;
+          sharepoint_sites?: string[] | null; teams_channels?: string[] | null;
+          distribution_lists?: string[] | null; role_specific_software?: string[] | null;
+          ashton_email_sent_at?: string | null; ashton_contact_id?: string | null; ashton_png_received?: boolean;
+          upstream_license_sent_at?: string | null; upstream_license_contact_id?: string | null;
+          license_decision?: string | null; license_cost?: number | null;
+          acct_email_verified?: boolean; acct_license_verified?: boolean; acct_distro_verified?: boolean;
+          acct_teams_verified?: boolean; acct_sharepoint_verified?: boolean;
+          procurement_pdf_sent_at?: string | null;
+          rudi_approved?: boolean; rudi_approved_at?: string | null;
+          uzair_approved?: boolean; uzair_approved_at?: string | null;
+          finance_approved?: boolean; finance_approved_at?: string | null;
+          upstream_goahead_sent_at?: string | null; upstream_goahead_contact_id?: string | null;
+          collection_arranged_at?: string | null;
+          upstream_collected_at?: string | null; upstream_collection_contact_id?: string | null;
+          upstream_confirmed_at?: string | null; upstream_confirmed_contact_id?: string | null;
+          dropoff_arranged_at?: string | null;
+          email_signature_added?: boolean; wifi_connected?: boolean;
+          arr_policies?: boolean; arr_assets_shown?: boolean; arr_liability_signed?: boolean;
+          arr_wifi_phone?: boolean; arr_authenticator?: boolean; arr_bitlocker?: boolean; arr_pin?: boolean;
+          arr_outlook?: boolean; arr_teams?: boolean; arr_onedrive?: boolean;
+          arr_ticket_process?: boolean; arr_printer_tutorial?: boolean;
+          outstanding_items?: string | null; completion_report_sent_at?: string | null;
+          paperwork_filed?: boolean; closed_at?: string | null;
+          created_at?: string; updated_at?: string;
+        };
+        Update: {
+          id?: string; status?: string; current_section?: number;
+          hr_email_sent_at?: string | null;
+          first_name?: string | null; last_name?: string | null; job_title?: string | null; department?: string | null;
+          manager_name?: string | null; manager_email?: string | null; phone?: string | null;
+          location?: string | null; start_date?: string | null; email_address?: string | null; printer_code?: string | null;
+          laptop_tier?: string | null; monitor_required?: boolean; monitor_qty?: number; colour_print_access?: boolean;
+          sharepoint_sites?: string[] | null; teams_channels?: string[] | null;
+          distribution_lists?: string[] | null; role_specific_software?: string[] | null;
+          ashton_email_sent_at?: string | null; ashton_contact_id?: string | null; ashton_png_received?: boolean;
+          upstream_license_sent_at?: string | null; upstream_license_contact_id?: string | null;
+          license_decision?: string | null; license_cost?: number | null;
+          acct_email_verified?: boolean; acct_license_verified?: boolean; acct_distro_verified?: boolean;
+          acct_teams_verified?: boolean; acct_sharepoint_verified?: boolean;
+          procurement_pdf_sent_at?: string | null;
+          rudi_approved?: boolean; rudi_approved_at?: string | null;
+          uzair_approved?: boolean; uzair_approved_at?: string | null;
+          finance_approved?: boolean; finance_approved_at?: string | null;
+          upstream_goahead_sent_at?: string | null; upstream_goahead_contact_id?: string | null;
+          collection_arranged_at?: string | null;
+          upstream_collected_at?: string | null; upstream_collection_contact_id?: string | null;
+          upstream_confirmed_at?: string | null; upstream_confirmed_contact_id?: string | null;
+          dropoff_arranged_at?: string | null;
+          email_signature_added?: boolean; wifi_connected?: boolean;
+          arr_policies?: boolean; arr_assets_shown?: boolean; arr_liability_signed?: boolean;
+          arr_wifi_phone?: boolean; arr_authenticator?: boolean; arr_bitlocker?: boolean; arr_pin?: boolean;
+          arr_outlook?: boolean; arr_teams?: boolean; arr_onedrive?: boolean;
+          arr_ticket_process?: boolean; arr_printer_tutorial?: boolean;
+          outstanding_items?: string | null; completion_report_sent_at?: string | null;
+          paperwork_filed?: boolean; closed_at?: string | null; updated_at?: string;
+        };
+        Relationships: [];
+      };
+      onboarding_spend_items: {
+        Row: {
+          id: string; case_id: string; category: string; description: string;
+          brand: string | null; model: string | null; qty: number; unit_cost: number | null;
+          ordered: boolean; order_date: string | null; supplier: string | null;
+          received: boolean; received_date: string | null;
+          condition: string | null; condition_notes: string | null;
+          serial_number: string | null; asset_tag: string | null; asset_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string; case_id: string; category: string; description: string;
+          brand?: string | null; model?: string | null; qty?: number; unit_cost?: number | null;
+          ordered?: boolean; order_date?: string | null; supplier?: string | null;
+          received?: boolean; received_date?: string | null;
+          condition?: string | null; condition_notes?: string | null;
+          serial_number?: string | null; asset_tag?: string | null; asset_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string; case_id?: string; category?: string; description?: string;
+          brand?: string | null; model?: string | null; qty?: number; unit_cost?: number | null;
+          ordered?: boolean; order_date?: string | null; supplier?: string | null;
+          received?: boolean; received_date?: string | null;
+          condition?: string | null; condition_notes?: string | null;
+          serial_number?: string | null; asset_tag?: string | null; asset_id?: string | null;
+        };
+        Relationships: [];
+      };
+      onboarding_printer_assignments: {
+        Row: {
+          id: string; case_id: string; printer_id: string;
+          printer_code: string | null; account_track_profile: string | null;
+          user_box_name: string | null; scan_email: string | null;
+          profile_created: boolean; code_assigned: boolean; user_box_created: boolean;
+          scanning_added: boolean; installed: boolean; test_print_done: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string; case_id: string; printer_id: string;
+          printer_code?: string | null; account_track_profile?: string | null;
+          user_box_name?: string | null; scan_email?: string | null;
+          profile_created?: boolean; code_assigned?: boolean; user_box_created?: boolean;
+          scanning_added?: boolean; installed?: boolean; test_print_done?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string; case_id?: string; printer_id?: string;
+          printer_code?: string | null; account_track_profile?: string | null;
+          user_box_name?: string | null; scan_email?: string | null;
+          profile_created?: boolean; code_assigned?: boolean; user_box_created?: boolean;
+          scanning_added?: boolean; installed?: boolean; test_print_done?: boolean;
+        };
+        Relationships: [];
+      };
+      onboarding_activity_log: {
+        Row: {
+          id: string; case_id: string; section: number | null;
+          action: string; detail: string | null; contact_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string; case_id: string; section?: number | null;
+          action: string; detail?: string | null; contact_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string; case_id?: string; section?: number | null;
+          action?: string; detail?: string | null; contact_id?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -1384,3 +1554,10 @@ export type CalendarData = {
   tasks: Task[];
   followUps: CalendarFollowUp[];
 };
+
+// ─── Onboarding module ────────────────────────────────────────────────────────
+
+export type OnboardingCase = Database["public"]["Tables"]["onboarding_cases"]["Row"];
+export type OnboardingSpendItem = Database["public"]["Tables"]["onboarding_spend_items"]["Row"];
+export type OnboardingPrinterAssignment = Database["public"]["Tables"]["onboarding_printer_assignments"]["Row"];
+export type OnboardingActivityLog = Database["public"]["Tables"]["onboarding_activity_log"]["Row"];

@@ -19,6 +19,7 @@ type PrinterTonerOrderInsert = Database["public"]["Tables"]["printer_toner_order
 type PrinterPaperOrderInsert = Database["public"]["Tables"]["printer_paper_orders"]["Insert"];
 type PrinterTicketInsert = Database["public"]["Tables"]["printer_tickets"]["Insert"];
 type PrinterMeterReadingInsert = Database["public"]["Tables"]["printer_meter_readings"]["Insert"];
+type OnboardingCaseInsert = Database["public"]["Tables"]["onboarding_cases"]["Insert"];
 
 async function getAuthenticatedAdmin() {
   const supabase = await createSupabaseServerClient();
@@ -2296,5 +2297,40 @@ export async function snoozeTaskFollowUp(
 
   if (error) return { error: error.message };
   revalidatePath("/tasks");
+  return { error: null };
+}
+
+// ─── Onboarding module ────────────────────────────────────────────────────────
+
+export async function createOnboardingCase(): Promise<{ id: string | null; error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { id: null, error: authError };
+
+  const { data, error } = await supabase
+    .from("onboarding_cases")
+    .insert({ status: "active", current_section: 1 } satisfies OnboardingCaseInsert)
+    .select("id")
+    .single();
+
+  if (error) return { id: null, error: error.message };
+  revalidatePath("/onboarding");
+  return { id: data.id, error: null };
+}
+
+export async function updateOnboardingCase(
+  id: string,
+  updates: Database["public"]["Tables"]["onboarding_cases"]["Update"]
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/onboarding");
+  revalidatePath(`/onboarding/${id}`);
   return { error: null };
 }
