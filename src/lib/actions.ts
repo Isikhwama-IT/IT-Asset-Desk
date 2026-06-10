@@ -2302,6 +2302,25 @@ export async function snoozeTaskFollowUp(
 
 // ─── Onboarding module ────────────────────────────────────────────────────────
 
+async function logOnboardingActivity(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  entry: {
+    case_id: string;
+    section: number;
+    action: string;
+    detail?: string | null;
+    contact_id?: string | null;
+  }
+): Promise<void> {
+  await supabase.from("onboarding_activity_log").insert({
+    case_id: entry.case_id,
+    section: entry.section,
+    action: entry.action,
+    detail: entry.detail ?? null,
+    contact_id: entry.contact_id ?? null,
+  });
+}
+
 export async function createOnboardingCase(): Promise<{ id: string | null; error: string | null }> {
   const { error: authError, supabase } = await getAuthenticatedAdmin();
   if (authError || !supabase) return { id: null, error: authError };
@@ -2333,4 +2352,949 @@ export async function updateOnboardingCase(
   revalidatePath("/onboarding");
   revalidatePath(`/onboarding/${id}`);
   return { error: null };
+}
+
+export async function markHrEmailSent(caseId: string): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ hr_email_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, { case_id: caseId, section: 1, action: "hr_email_sent" });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function markAshtonEmailSent(caseId: string): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ ashton_email_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, { case_id: caseId, section: 2, action: "ashton_email_sent" });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function submitOnboardingSection2(
+  caseId: string,
+  currentPrinterCode: string | null,
+  data: {
+    first_name: string;
+    last_name: string;
+    job_title: string;
+    department: string;
+    manager_name: string;
+    manager_email: string;
+    phone: string;
+    location: string | null;
+    start_date: string;
+    laptop_tier: string | null;
+    monitor_required: boolean;
+    monitor_qty: number;
+    colour_print_access: boolean;
+    sharepoint_sites: string[];
+    teams_channels: string[];
+    distribution_lists: string[];
+    role_specific_software: string[];
+    email_address: string;
+  }
+): Promise<{ error: string | null; printer_code?: string }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  let printerCode = currentPrinterCode;
+
+  // Only create the contact record on the very first submit (no printer_code yet)
+  if (!printerCode) {
+    let locationId: string | null = null;
+    if (data.location) {
+      const { data: loc } = await supabase
+        .from("locations")
+        .select("id")
+        .eq("name", data.location)
+        .single();
+      locationId = loc?.id ?? null;
+    }
+
+    let departmentId: string | null = null;
+    if (data.department.trim()) {
+      const { data: dept } = await supabase
+        .from("departments")
+        .select("id")
+        .ilike("name", data.department.trim())
+        .single();
+      departmentId = dept?.id ?? null;
+    }
+
+    const contactResult = await createContact({
+      full_name: `${data.first_name.trim()} ${data.last_name.trim()}`.trim(),
+      email: data.email_address.trim() || undefined,
+      department_id: departmentId ?? undefined,
+      location_id: locationId ?? undefined,
+    });
+
+    if ("error" in contactResult && contactResult.error) {
+      return { error: contactResult.error };
+    }
+    printerCode = "printer_code" in contactResult && contactResult.printer_code != null
+      ? String(contactResult.printer_code)
+      : null;
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({
+      first_name: data.first_name.trim() || null,
+      last_name: data.last_name.trim() || null,
+      job_title: data.job_title.trim() || null,
+      department: data.department.trim() || null,
+      manager_name: data.manager_name.trim() || null,
+      manager_email: data.manager_email.trim() || null,
+      phone: data.phone.trim() || null,
+      location: data.location || null,
+      start_date: data.start_date || null,
+      email_address: data.email_address.trim() || null,
+      laptop_tier: data.laptop_tier || null,
+      monitor_required: data.monitor_required,
+      monitor_qty: data.monitor_qty,
+      colour_print_access: data.colour_print_access,
+      sharepoint_sites: data.sharepoint_sites.length > 0 ? data.sharepoint_sites : null,
+      teams_channels: data.teams_channels.length > 0 ? data.teams_channels : null,
+      distribution_lists: data.distribution_lists.length > 0 ? data.distribution_lists : null,
+      role_specific_software: data.role_specific_software.length > 0 ? data.role_specific_software : null,
+      printer_code: printerCode,
+      updated_at: now,
+    })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 2,
+    action: "employee_details_submitted",
+    detail: data.email_address.trim() || null,
+  });
+  revalidatePath("/onboarding");
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null, printer_code: printerCode ?? undefined };
+}
+
+export async function markUpstreamLicenseSent(
+  caseId: string,
+  contactId: string | null
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({
+      upstream_license_sent_at: new Date().toISOString(),
+      upstream_license_contact_id: contactId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 3,
+    action: "upstream_license_sent",
+    contact_id: contactId,
+  });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function saveLicenseDecision(
+  caseId: string,
+  decision: string,
+  cost: number | null
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({
+      license_decision: decision,
+      license_cost: cost,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 3,
+    action: "license_decision_recorded",
+    detail: cost != null ? `${decision} · R${cost}` : decision,
+  });
+  revalidatePath("/onboarding");
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function addSpendItem(
+  caseId: string,
+  data: {
+    category: string;
+    description: string;
+    brand?: string | null;
+    model?: string | null;
+    qty?: number;
+    unit_cost?: number | null;
+  }
+): Promise<{ error: string | null; id?: string }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { data: row, error } = await supabase
+    .from("onboarding_spend_items")
+    .insert({ case_id: caseId, ...data, qty: data.qty ?? 1 })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 4,
+    action: "spend_item_added",
+    detail: data.description,
+  });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null, id: row.id };
+}
+
+export async function updateSpendItem(
+  id: string,
+  caseId: string,
+  data: {
+    category?: string;
+    description?: string;
+    brand?: string | null;
+    model?: string | null;
+    qty?: number;
+    unit_cost?: number | null;
+  }
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_spend_items")
+    .update(data)
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function deleteSpendItem(
+  id: string,
+  caseId: string
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_spend_items")
+    .delete()
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, { case_id: caseId, section: 4, action: "spend_item_removed" });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function markProcurementPdfSent(caseId: string): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ procurement_pdf_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, { case_id: caseId, section: 4, action: "procurement_pdf_sent" });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function saveApprovals(
+  caseId: string,
+  data: {
+    rudi_approved: boolean; rudi_approved_at: string | null;
+    uzair_approved: boolean; uzair_approved_at: string | null;
+    finance_approved: boolean; finance_approved_at: string | null;
+  }
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ ...data, updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  const parts: string[] = [];
+  if (data.rudi_approved) parts.push("Rudi");
+  if (data.uzair_approved) parts.push("Uzair");
+  if (data.finance_approved) parts.push("Finance");
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 4,
+    action: data.rudi_approved && data.uzair_approved && data.finance_approved
+      ? "all_approvals_granted"
+      : "approvals_updated",
+    detail: parts.join(", ") || null,
+  });
+  revalidatePath("/onboarding");
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+// ─── ONBOARDING §5 — ORDER ──────────────────────────────────────────────────
+
+export async function markUpstreamGoAheadSent(
+  caseId: string,
+  contactId: string | null
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({
+      upstream_goahead_sent_at: new Date().toISOString(),
+      upstream_goahead_contact_id: contactId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 5,
+    action: "go_ahead_sent",
+    contact_id: contactId,
+  });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function saveSpendItemOrder(
+  id: string,
+  caseId: string,
+  data: { supplier?: string | null; order_date?: string | null; ordered: boolean }
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_spend_items")
+    .update({
+      supplier: data.supplier ?? null,
+      order_date: data.order_date ?? null,
+      ordered: data.ordered,
+    })
+    .eq("id", id)
+    .eq("case_id", caseId);
+
+  if (error) return { error: error.message };
+  if (data.ordered) {
+    const detail = [data.supplier, data.order_date].filter(Boolean).join(" · ") || null;
+    await logOnboardingActivity(supabase, { case_id: caseId, section: 5, action: "item_ordered", detail });
+  }
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+// ─── ONBOARDING §6 — HARDWARE ARRIVAL ──────────────────────────────────────
+
+export async function saveSpendItemReceival(
+  id: string,
+  caseId: string,
+  data: {
+    brand?: string | null;
+    model?: string | null;
+    received: boolean;
+    received_date?: string | null;
+    condition?: string | null;
+    condition_notes?: string | null;
+    serial_number?: string | null;
+    asset_tag?: string | null;
+  }
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_spend_items")
+    .update({
+      brand: data.brand ?? null,
+      model: data.model ?? null,
+      received: data.received,
+      received_date: data.received_date ?? (data.received ? new Date().toISOString().slice(0, 10) : null),
+      condition: data.condition ?? null,
+      condition_notes: data.condition_notes ?? null,
+      serial_number: data.serial_number ?? null,
+      asset_tag: data.asset_tag ?? null,
+    })
+    .eq("id", id)
+    .eq("case_id", caseId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function logOnboardingAssets(
+  caseId: string
+): Promise<{ error: string | null; assetMap?: Record<string, string> }> {
+  const { error: authError, supabase, user } = await getAuthenticatedAdmin();
+  if (authError || !supabase || !user) return { error: authError };
+
+  const { data: c } = await supabase
+    .from("onboarding_cases")
+    .select("*")
+    .eq("id", caseId)
+    .single();
+  if (!c) return { error: "Case not found" };
+
+  const { data: items } = await supabase
+    .from("onboarding_spend_items")
+    .select("*")
+    .eq("case_id", caseId)
+    .eq("received", true)
+    .is("asset_id", null)
+    .neq("category", "license");
+
+  if (!items || items.length === 0) return { error: null, assetMap: {} };
+
+  const { data: categoryRows } = await supabase.from("categories").select("id, name");
+  const { data: statusRows } = await supabase.from("statuses").select("id, name");
+  const inUseStatus =
+    statusRows?.find((s) => s.name.toLowerCase().includes("in use")) ??
+    statusRows?.find((s) => s.name.toLowerCase().includes("active")) ??
+    statusRows?.[0];
+  if (!inUseStatus) return { error: "No asset status found in database" };
+
+  let locationId: string | null = null;
+  if (c.location) {
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("id")
+      .ilike("name", c.location)
+      .single();
+    locationId = loc?.id ?? null;
+  }
+
+  let contactId: string | null = null;
+  if (c.printer_code) {
+    const { data: contact } = await supabase
+      .from("contacts")
+      .select("id")
+      .eq("printer_code", parseInt(c.printer_code, 10))
+      .single();
+    contactId = contact?.id ?? null;
+  }
+
+  const assetMap: Record<string, string> = {};
+
+  for (const item of items) {
+    const assetId = crypto.randomUUID();
+    const catName = item.category.toLowerCase();
+    const category =
+      categoryRows?.find((cat) => cat.name.toLowerCase() === catName) ??
+      categoryRows?.find((cat) => cat.name.toLowerCase().includes(catName)) ??
+      categoryRows?.[0];
+
+    if (!category) continue;
+
+    const createResult = await createAsset({
+      id: assetId,
+      description: item.description,
+      category_id: category.id,
+      serial_number: item.serial_number ?? undefined,
+      status_id: inUseStatus.id,
+      location_id: locationId ?? undefined,
+      notes: [item.brand, item.model].filter(Boolean).join(" ") || undefined,
+    });
+
+    if ("error" in createResult && createResult.error) {
+      return { error: `Failed to create asset for "${item.description}": ${createResult.error}` };
+    }
+
+    if (contactId) {
+      await assignAsset({
+        asset_id: assetId,
+        contact_id: contactId,
+        location_id: locationId ?? undefined,
+        in_use_status_id: inUseStatus.id,
+        current_status_id: inUseStatus.id,
+      });
+    }
+
+    await supabase
+      .from("onboarding_spend_items")
+      .update({ asset_id: assetId })
+      .eq("id", item.id);
+
+    assetMap[item.id] = assetId;
+  }
+
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 6,
+    action: "assets_logged",
+    detail: `${Object.keys(assetMap).length} asset${Object.keys(assetMap).length !== 1 ? "s" : ""} created`,
+  });
+  revalidatePath(`/onboarding/${caseId}`);
+  revalidatePath("/assets");
+  return { error: null, assetMap };
+}
+
+export async function arrangeUpstreamCollection(caseId: string): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ collection_arranged_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, { case_id: caseId, section: 6, action: "collection_arranged" });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+// ─── ONBOARDING §7 — UPSTREAM ONBOARDING ────────────────────────────────────
+
+export async function saveUpstreamCollection(
+  caseId: string,
+  data: { collected_at: string; contact_id: string | null }
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({
+      upstream_collected_at: data.collected_at,
+      upstream_collection_contact_id: data.contact_id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 7,
+    action: "upstream_collected",
+    detail: data.collected_at,
+    contact_id: data.contact_id,
+  });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function saveUpstreamConfirmed(
+  caseId: string,
+  data: { confirmed_at: string; contact_id: string | null }
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({
+      upstream_confirmed_at: data.confirmed_at,
+      upstream_confirmed_contact_id: data.contact_id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 7,
+    action: "upstream_confirmed",
+    detail: data.confirmed_at,
+    contact_id: data.contact_id,
+  });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function saveAccountVerification(
+  caseId: string,
+  data: {
+    acct_email_verified: boolean;
+    acct_license_verified: boolean;
+    acct_distro_verified: boolean;
+    acct_teams_verified: boolean;
+    acct_sharepoint_verified: boolean;
+  }
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ ...data, updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  const allVerified = data.acct_email_verified && data.acct_license_verified &&
+    data.acct_distro_verified && data.acct_teams_verified && data.acct_sharepoint_verified;
+  await logOnboardingActivity(supabase, {
+    case_id: caseId,
+    section: 7,
+    action: allVerified ? "accounts_all_verified" : "accounts_updated",
+  });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+// ─── ONBOARDING §8 — FINALISE DEVICE ───────────────────────────────────────
+
+export async function initializePrinterAssignments(caseId: string): Promise<{
+  error: string | null;
+  assignments: import("@/types/database").OnboardingPrinterAssignment[];
+  printerNames: Record<string, string>;
+}> {
+  const empty = { error: null, assignments: [], printerNames: {} };
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { ...empty, error: authError };
+
+  const { data: c } = await supabase.from("onboarding_cases").select("*").eq("id", caseId).single();
+  if (!c) return { ...empty, error: "Case not found" };
+
+  // Fetch existing assignments
+  const { data: existing } = await supabase
+    .from("onboarding_printer_assignments")
+    .select("*")
+    .eq("case_id", caseId);
+
+  const existingById: Record<string, true> = {};
+  (existing ?? []).forEach((a) => { existingById[a.printer_id] = true; });
+
+  // Find printers at this location
+  let printers: Array<{ id: string; name: string }> = [];
+  if (c.location) {
+    const { data: loc } = await supabase
+      .from("locations")
+      .select("id")
+      .ilike("name", c.location)
+      .single();
+    if (loc) {
+      const { data: ps } = await supabase
+        .from("printers")
+        .select("id, name")
+        .eq("location_id", loc.id)
+        .is("archived_at", null);
+      printers = ps ?? [];
+    }
+  }
+
+  // Build printer name map
+  const printerNames: Record<string, string> = {};
+  printers.forEach((p) => { printerNames[p.id] = p.name; });
+  (existing ?? []).forEach((a) => {
+    if (!printerNames[a.printer_id]) printerNames[a.printer_id] = `Printer ${a.printer_id.slice(0, 6)}`;
+  });
+
+  // Determine employee profile name (unique check)
+  const firstName = c.first_name ?? "";
+  const fullName = [c.first_name, c.last_name].filter(Boolean).join(" ");
+  let profileName = firstName;
+  if (firstName) {
+    const { data: conflict } = await supabase
+      .from("onboarding_printer_assignments")
+      .select("id")
+      .eq("account_track_profile", firstName)
+      .neq("case_id", caseId)
+      .limit(1);
+    if (conflict && conflict.length > 0) profileName = fullName;
+  }
+
+  // Create missing assignments
+  const toInsert = printers.filter((p) => !existingById[p.id]);
+  if (toInsert.length > 0) {
+    await supabase.from("onboarding_printer_assignments").insert(
+      toInsert.map((p) => ({
+        id: crypto.randomUUID(),
+        case_id: caseId,
+        printer_id: p.id,
+        printer_code: c.printer_code ?? null,
+        account_track_profile: profileName || null,
+        user_box_name: profileName || null,
+        scan_email: c.email_address ?? null,
+      }))
+    );
+  }
+
+  // Return current full set
+  const { data: all } = await supabase
+    .from("onboarding_printer_assignments")
+    .select("*")
+    .eq("case_id", caseId)
+    .order("created_at");
+
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null, assignments: all ?? [], printerNames };
+}
+
+export async function updatePrinterChecklist(
+  id: string,
+  caseId: string,
+  field: "profile_created" | "code_assigned" | "user_box_created" | "scanning_added" | "installed" | "test_print_done",
+  value: boolean
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_printer_assignments")
+    .update({ [field]: value })
+    .eq("id", id)
+    .eq("case_id", caseId);
+
+  if (error) return { error: error.message };
+  if (value && field === "test_print_done") {
+    await logOnboardingActivity(supabase, {
+      case_id: caseId,
+      section: 8,
+      action: "printer_setup_complete",
+      detail: id,
+    });
+  }
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function saveCaseDeviceChecklist(
+  caseId: string,
+  data: { email_signature_added?: boolean; wifi_connected?: boolean }
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ ...data, updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  const action = data.email_signature_added != null ? "email_signature_toggled" : "wifi_connected_toggled";
+  await logOnboardingActivity(supabase, { case_id: caseId, section: 8, action });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function saveDropoffArranged(caseId: string): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ dropoff_arranged_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, { case_id: caseId, section: 7, action: "dropoff_arranged" });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+// ─── ONBOARDING §9 — EMPLOYEE ARRIVAL ───────────────────────────────────────
+
+type ArrivalField =
+  | "arr_policies" | "arr_assets_shown" | "arr_liability_signed"
+  | "arr_wifi_phone" | "arr_authenticator" | "arr_bitlocker" | "arr_pin"
+  | "arr_outlook" | "arr_teams" | "arr_onedrive"
+  | "arr_ticket_process" | "arr_printer_tutorial";
+
+export async function saveArrivalChecklist(
+  caseId: string,
+  field: ArrivalField,
+  value: boolean
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ [field]: value, updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  if (value) {
+    await logOnboardingActivity(supabase, { case_id: caseId, section: 9, action: "arrival_item_checked", detail: field });
+    const { data: updated } = await supabase
+      .from("onboarding_cases")
+      .select("arr_policies,arr_assets_shown,arr_liability_signed,arr_wifi_phone,arr_authenticator,arr_bitlocker,arr_pin,arr_outlook,arr_teams,arr_onedrive,arr_ticket_process,arr_printer_tutorial")
+      .eq("id", caseId)
+      .single();
+    if (updated) {
+      const allDone = Object.values(updated).every(Boolean);
+      if (allDone) {
+        await logOnboardingActivity(supabase, { case_id: caseId, section: 9, action: "arrival_checklist_complete" });
+      }
+    }
+  }
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+// ─── ONBOARDING §10 — CLOSE ─────────────────────────────────────────────────
+
+export async function saveOutstandingItems(
+  caseId: string,
+  text: string
+): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ outstanding_items: text || null, updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function markCompletionReportSent(caseId: string): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ completion_report_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, { case_id: caseId, section: 10, action: "completion_report_sent" });
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function savePaperworkFiled(caseId: string, value: boolean): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ paperwork_filed: value, updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function closeCase(caseId: string): Promise<{ error: string | null }> {
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { error: authError };
+
+  const { error } = await supabase
+    .from("onboarding_cases")
+    .update({ status: "complete", closed_at: new Date().toISOString(), current_section: 10, updated_at: new Date().toISOString() })
+    .eq("id", caseId);
+
+  if (error) return { error: error.message };
+  await logOnboardingActivity(supabase, { case_id: caseId, section: 10, action: "case_closed" });
+  revalidatePath("/onboarding");
+  revalidatePath(`/onboarding/${caseId}`);
+  return { error: null };
+}
+
+export async function getCompletionReportData(caseId: string): Promise<{
+  error: string | null;
+  assets: Array<{ id: string; asset_code: number | null; category_name: string | null }>;
+  printerDetails: Record<string, { name: string; location: string | null }>;
+}> {
+  const empty = { error: null, assets: [], printerDetails: {} };
+  const { error: authError, supabase } = await getAuthenticatedAdmin();
+  if (authError || !supabase) return { ...empty, error: authError };
+
+  // Fetch asset records for spend items
+  const { data: spendItems } = await supabase
+    .from("onboarding_spend_items")
+    .select("asset_id")
+    .eq("case_id", caseId)
+    .not("asset_id", "is", null);
+
+  const assetIds = (spendItems ?? []).map((i) => i.asset_id).filter(Boolean) as string[];
+
+  let assets: Array<{ id: string; asset_code: number | null; category_name: string | null }> = [];
+  if (assetIds.length > 0) {
+    const { data: assetRows } = await supabase
+      .from("assets")
+      .select("id, asset_code, category_id")
+      .in("id", assetIds);
+
+    const categoryIds = [...new Set((assetRows ?? []).map((a) => a.category_id).filter(Boolean))] as string[];
+    let catMap: Record<string, string> = {};
+    if (categoryIds.length > 0) {
+      const { data: cats } = await supabase.from("categories").select("id, name").in("id", categoryIds);
+      (cats ?? []).forEach((cat) => { catMap[cat.id] = cat.name; });
+    }
+
+    assets = (assetRows ?? []).map((a) => ({
+      id: a.id,
+      asset_code: a.asset_code,
+      category_name: a.category_id ? (catMap[a.category_id] ?? null) : null,
+    }));
+  }
+
+  // Fetch printer details for assignments
+  const { data: assignments } = await supabase
+    .from("onboarding_printer_assignments")
+    .select("printer_id")
+    .eq("case_id", caseId);
+
+  const printerIds = [...new Set((assignments ?? []).map((a) => a.printer_id))];
+  const printerDetails: Record<string, { name: string; location: string | null }> = {};
+
+  if (printerIds.length > 0) {
+    const { data: printers } = await supabase
+      .from("printers")
+      .select("id, name, location_id")
+      .in("id", printerIds);
+
+    const locationIds = [...new Set((printers ?? []).map((p) => p.location_id).filter(Boolean))] as string[];
+    let locMap: Record<string, string> = {};
+    if (locationIds.length > 0) {
+      const { data: locs } = await supabase.from("locations").select("id, name").in("id", locationIds);
+      (locs ?? []).forEach((l) => { locMap[l.id] = l.name; });
+    }
+
+    (printers ?? []).forEach((p) => {
+      printerDetails[p.id] = {
+        name: p.name,
+        location: p.location_id ? (locMap[p.location_id] ?? null) : null,
+      };
+    });
+  }
+
+  return { error: null, assets, printerDetails };
 }

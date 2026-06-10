@@ -13,10 +13,16 @@ export default async function OnboardingCasePage({
   const { id } = await params;
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: caseRow }, { data: spendItems }, { data: printerAssignments }] = await Promise.all([
+  const [
+    { data: caseRow },
+    { data: spendItems },
+    { data: printerAssignments },
+    { data: externalContacts },
+  ] = await Promise.all([
     supabase.from("onboarding_cases").select("*").eq("id", id).single(),
     supabase.from("onboarding_spend_items").select("*").eq("case_id", id).order("created_at"),
     supabase.from("onboarding_printer_assignments").select("*").eq("case_id", id).order("created_at"),
+    supabase.from("external_contacts").select("id, name, company, email").order("name"),
   ]);
 
   if (!caseRow) notFound();
@@ -26,6 +32,7 @@ export default async function OnboardingCasePage({
       initialCase={caseRow as OnboardingCase}
       initialSpendItems={(spendItems ?? []) as OnboardingSpendItem[]}
       initialPrinterAssignments={(printerAssignments ?? []) as OnboardingPrinterAssignment[]}
+      initialExternalContacts={(externalContacts ?? []) as Array<{ id: string; name: string; company: string | null; email: string | null }>}
     />
   );
 }

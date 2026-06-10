@@ -17,12 +17,14 @@ interface Props {
   onSave: () => void;
   onCancel: () => void;
   showSpendWarning?: boolean;
+  hideShellSave?: boolean;
+  readOnly?: boolean;
   children?: React.ReactNode;
 }
 
 export default function SectionShell({
   n, title, state, lockReason, awaitingLabel, summary,
-  isEditing, onEdit, onSave, onCancel, showSpendWarning, children,
+  isEditing, onEdit, onSave, onCancel, showSpendWarning, hideShellSave, readOnly, children,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
 
@@ -83,13 +85,15 @@ export default function SectionShell({
               {summary}
             </span>
           )}
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-stone-100 text-stone-300 hover:text-stone-600 transition-colors flex-shrink-0"
-            title="Edit section"
-          >
-            <Pencil size={12} />
-          </button>
+          {!readOnly && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-stone-100 text-stone-300 hover:text-stone-600 transition-colors flex-shrink-0"
+              title="Edit section"
+            >
+              <Pencil size={12} />
+            </button>
+          )}
           {expanded
             ? <ChevronUp size={13} className="text-stone-300 flex-shrink-0" />
             : <ChevronDown size={13} className="text-stone-300 flex-shrink-0" />}
@@ -131,13 +135,15 @@ export default function SectionShell({
             >
               Cancel
             </button>
-            <button
-              onClick={onSave}
-              className="flex items-center gap-1 px-2.5 py-1 text-[12px] rounded-lg text-white transition-opacity hover:opacity-90"
-              style={{ background: "#C04F28" }}
-            >
-              <Check size={11} strokeWidth={2.5} /> Save
-            </button>
+            {!hideShellSave && (
+              <button
+                onClick={onSave}
+                className="flex items-center gap-1 px-2.5 py-1 text-[12px] rounded-lg text-white transition-opacity hover:opacity-90"
+                style={{ background: "#C04F28" }}
+              >
+                <Check size={11} strokeWidth={2.5} /> Save
+              </button>
+            )}
           </div>
         )}
       </div>
